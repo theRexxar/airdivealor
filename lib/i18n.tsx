@@ -1,6 +1,7 @@
 "use client";
 
 import { EXACT, FRAG } from "./i18n-dict";
+import { FACILITIES_ID } from "./page-dicts";
 import { SITES_ID, SITES_PAGE_ID } from "./sites-data";
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 
@@ -94,7 +95,7 @@ const EXTRA: Record<string, string> = {
   "No diving 24 hours before your flight out.": "Tidak menyelam 24 jam sebelum penerbangan pulang.",
 };
 
-const ID: Record<string, string> = { ...EXACT, ...SITES_ID, ...SITES_PAGE_ID, ...EXTRA };
+const ID: Record<string, string> = { ...EXACT, ...SITES_ID, ...SITES_PAGE_ID, ...FACILITIES_ID, ...EXTRA };
 const FRAG_RE = FRAG.map(([en, id]) => [new RegExp("\\b" + en.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "g"), id] as const);
 
 /** Translate to Indonesian: exact match first, then word-level fragments (same rules as the prototypes). */
