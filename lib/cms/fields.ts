@@ -31,6 +31,8 @@ export type Field =
   | (Base & { type: "boolean" })
   | (Base & { type: "select"; options: { value: string; label: string }[]; required?: boolean })
   | (Base & { type: "media"; accept: "image" | "video" })
+  /** Pick an item from a CMS collection (stores its slug), e.g. a dive site. */
+  | (Base & { type: "ref"; collection: string; required?: boolean })
   | (Base & { type: "group"; fields: Field[] })
   | (Base & { type: "list"; itemLabel: string; fields: Field[]; min?: number; max?: number; titleKey?: string });
 
@@ -73,6 +75,10 @@ function fieldSchema(f: Field): z.ZodTypeAny {
         mediaId: z.number().int().positive().nullable(),
         url: z.union([z.literal(""), z.string().trim().max(1000).refine((v) => /^(https?:\/\/|\/)/.test(v), "Use a full URL or a path starting with /")]),
       });
+    case "ref": {
+      const s = z.string().trim().max(120);
+      return f.required ? s.min(1, `Choose a ${f.label.toLowerCase()}`) : s;
+    }
     case "group":
       return schemaFor(f.fields);
     case "list": {
@@ -90,6 +96,7 @@ export function emptyValue(f: Field): unknown {
     case "text":
     case "textarea":
     case "url":
+    case "ref":
       return "";
     case "i18n":
       return { en: "", id: "" };
@@ -136,6 +143,7 @@ export const F = {
   select: (key: string, label: string, options: { value: string; label: string }[], help?: string): Field => ({ type: "select", key, label, options, help }),
   image: (key: string, label: string, help?: string): Field => ({ type: "media", key, label, accept: "image", help }),
   video: (key: string, label: string, help?: string): Field => ({ type: "media", key, label, accept: "video", help }),
+  ref: (key: string, label: string, collection: string, o: { required?: boolean; help?: string } = {}): Field => ({ type: "ref", key, label, collection, ...o }),
   group: (key: string, label: string, fields: Field[], help?: string): Field => ({ type: "group", key, label, fields, help }),
   list: (key: string, label: string, itemLabel: string, fields: Field[], o: { min?: number; max?: number; titleKey?: string; help?: string } = {}): Field => ({
     type: "list",

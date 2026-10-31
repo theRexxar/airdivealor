@@ -5,7 +5,8 @@ import { db, schema } from "@/lib/server/db";
 import { body, handle, HttpError, ok, requireUser } from "@/lib/server/http";
 import { serializeMedia } from "@/lib/server/media-service";
 import { deleteObjects } from "@/lib/server/storage";
-import { homeSections } from "@/lib/server/home-service";
+import { PAGES } from "@/lib/cms/registry";
+import { pageSections } from "@/lib/server/page-service";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -34,8 +35,11 @@ export const PATCH = handle(async (req, ctx: Ctx) => {
 export const DELETE = handle(async (_req, ctx: Ctx) => {
   const me = await requireUser("media.delete");
   const m = await findMedia(ctx);
-  const used = (await homeSections()).filter((s) => JSON.stringify([s.draft, s.published]).includes(`"mediaId":${m.id}`)).map((s) => s.key);
-  if (used.length) throw new HttpError(409, `This file is used on the Home page (${used.join(", ")}). Replace it there first.`);
+  const needle = `"mediaId":${m.id}`;
+  const used: string[] = [];
+  for (const p of PAGES) for (const sec of await pageSections(p.slug).catch(() => [])) if (JSON.stringify([sec.draft, sec.published]).includes(needle)) used.push(`${p.label} › ${sec.key}`);
+  for (const it of await db.select().from(schema.collectionItems)) if (JSON.stringify([it.draft, it.published]).includes(needle)) used.push(`${it.collection} › ${it.slug}`);
+  if (used.length) throw new HttpError(409, `This file is still used on: ${used.join(", ")}. Replace it there first.`);
   await deleteObjects([m.originalKey, ...(m.variants ?? []).map((v) => v.key), ...(m.posterKey ? [m.posterKey] : [])]);
   await db.delete(schema.media).where(eq(schema.media.id, m.id));
   await audit(me.id, "media.deleted", m.originalName, { id: m.id });

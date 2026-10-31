@@ -1,40 +1,14 @@
 /**
  * The Home page as the CMS sees it: one entry per section, in page order.
- * Each section has its own fields and its own edit permission (`home.<key>.edit`).
+ * Each section has its own fields and its own edit permission (`home.<key>.edit`). Registered in lib/cms/registry.ts.
  */
-import { SITES } from "../sites-data";
-import { F, schemaFor, type Field } from "./fields";
+import { F, schemaFor } from "./fields";
+import { eyebrowTitle, ICON_OPTIONS as ICONS, seoSection, type SectionDef } from "./sections";
 
-export interface SectionDef {
-  key: string;
-  label: string;
-  /** Depth label used in the page and depth gauge, e.g. "5 m". */
-  depth?: number;
-  description: string;
-  fields: Field[];
-  /** SEO is page data, not a visible section, so it cannot be hidden or reordered. */
-  fixed?: boolean;
-}
-
-const ICONS = [
-  "badge-check", "shield-check", "users", "star", "award", "fish", "mountain", "waves", "eye", "anchor", "bed", "plane", "utensils",
-  "clock", "coffee", "camera", "ship", "life-buoy", "map-pin", "sun", "heart", "message-circle",
-].map((v) => ({ value: v, label: v }));
-
-const eyebrowTitle = (title = "Title"): Field[] => [F.i18n("eyebrow", "Eyebrow", { help: "Small label above the title, e.g. “5 m · Prices”." }), F.i18n("title", title, { required: true })];
+export type { SectionDef };
 
 export const HOME_SECTIONS: SectionDef[] = [
-  {
-    key: "seo",
-    label: "SEO and sharing",
-    description: "Browser title, search description and the image shown when the page is shared.",
-    fixed: true,
-    fields: [
-      F.i18n("title", "Page title", { required: true, max: 120 }),
-      F.i18n("description", "Meta description", { multiline: true, max: 300, help: "About 150–160 characters." }),
-      F.image("ogImage", "Share image", "1200 × 630 px works best."),
-    ],
-  },
+  seoSection(),
   {
     key: "hero",
     label: "Hero",
@@ -114,7 +88,7 @@ export const HOME_SECTIONS: SectionDef[] = [
       ...eyebrowTitle(),
       F.number("defaultIndex", "Site selected at first (1 = first)", { min: 1 }),
       F.list("items", "Sites", "Site", [
-        F.select("slug", "Site", SITES.map((x) => ({ value: x.slug, label: x.name }))),
+        F.ref("slug", "Site", "sites", { required: true }),
         F.image("photo", "Photo"),
       ], { min: 1, max: 12, titleKey: "slug" }),
       F.i18n("guideLabel", "Site guide link"),

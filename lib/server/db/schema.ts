@@ -137,3 +137,30 @@ export const userRolesRelations = relations(userRoles, ({ one }) => ({
 export const rolePermissionsRelations = relations(rolePermissions, ({ one }) => ({ role: one(roles, { fields: [rolePermissions.roleId], references: [roles.id] }) }));
 export const pagesRelations = relations(pages, ({ many }) => ({ sections: many(pageSections) }));
 export const pageSectionsRelations = relations(pageSections, ({ one }) => ({ page: one(pages, { fields: [pageSections.pageId], references: [pages.id] }) }));
+
+/* ---------- Collections (dive sites, and later courses, blog posts…) ---------- */
+
+export const collectionItems = mysqlTable("collection_items", {
+  id: int("id").autoincrement().primaryKey(),
+  collection: varchar("collection", { length: 40 }).notNull(),
+  /** Web address of the item, unique within its collection. Mirrors the published (or draft) content slug. */
+  slug: varchar("slug", { length: 120 }).notNull(),
+  sort: int("sort").notNull().default(0),
+  /** Hidden items stay in the CMS but are left out of the website. */
+  enabled: boolean("enabled").notNull().default(true),
+  draft: json("draft").$type<unknown>().notNull(),
+  /** Null until the item is first published. */
+  published: json("published").$type<unknown>(),
+  draftUpdatedAt: datetime("draft_updated_at", { mode: "date" }),
+  draftUpdatedBy: int("draft_updated_by").references(() => users.id, { onDelete: "set null" }),
+  publishedAt: datetime("published_at", { mode: "date" }),
+  publishedBy: int("published_by").references(() => users.id, { onDelete: "set null" }),
+  ...timestamps,
+}, (t) => [uniqueIndex("collection_items_slug_uq").on(t.collection, t.slug), index("collection_items_sort_idx").on(t.collection, t.sort)]);
+
+/** Small key/value store for CMS bookkeeping (e.g. which permissions the seed already granted). */
+export const cmsSettings = mysqlTable("cms_settings", {
+  key: varchar("key", { length: 80 }).primaryKey(),
+  value: json("value").$type<unknown>().notNull(),
+  updatedAt: timestamps.updatedAt,
+});

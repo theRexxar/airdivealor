@@ -1,0 +1,66 @@
+import type { PublishedDiveSites, PublishedSite, SiteContent } from "@/lib/cms/dive-sites-types";
+import type { HomeContent, PublishedHome } from "@/lib/cms/home-types";
+import { liveItems } from "./collection-service";
+import { HttpError } from "./http";
+import { resolveMedia } from "./media-service";
+import { pageContent } from "./page-service";
+
+type Opts = { draft?: boolean };
+
+/** Home: page content plus the dive sites its site picker refers to. */
+async function homePayload(opts: Opts): Promise<PublishedHome> {
+  const page = await pageContent("home", opts);
+  const content = page.content as unknown as HomeContent;
+  const { items } = await liveItems<SiteContent>("sites", opts);
+  const wanted = new Set(content.sites.items.map((x) => x.slug));
+  const sites = Object.fromEntries(items.filter((x) => wanted.has(x.slug)).map((x) => [x.slug, x]));
+  // Only resolve media of the picked sites.
+  const ids = new Set(page.mediaIds);
+  for (const x of Object.values(sites)) {
+    if (x.photo.mediaId) ids.add(x.photo.mediaId);
+  }
+  return { content, order: page.order as PublishedHome["order"], media: await resolveMedia(ids), sites, publishedAt: page.publishedAt };
+}
+
+/** Dive sites page: page content plus every published, visible site in order. */
+async function diveSitesPayload(opts: Opts): Promise<PublishedDiveSites> {
+  const page = await pageContent("dive-sites", opts);
+  const { items, mediaIds } = await liveItems<SiteContent>("sites", opts);
+  return {
+    content: page.content as unknown as PublishedDiveSites["content"],
+    order: page.order,
+    sites: items,
+    media: await resolveMedia(new Set([...page.mediaIds, ...mediaIds])),
+    publishedAt: page.publishedAt,
+  };
+}
+
+export async function publicPagePayload(slug: string, opts: Opts = {}) {
+  if (slug === "home") return homePayload(opts);
+  if (slug === "dive-sites") return diveSitesPayload(opts);
+  throw new HttpError(404, "Unknown page.");
+}
+
+/** One site guide with shared guide texts and previous/next neighbours. Null when not published or hidden. */
+export async function publicSitePayload(slug: string, opts: Opts = {}): Promise<PublishedSite | null> {
+  const { items } = await liveItems<SiteContent>("sites", opts);
+  const i = items.findIndex((x) => x.slug === slug);
+  if (i < 0) return null;
+  const site = items[i];
+  const n = items.length;
+  const page = await pageContent("dive-sites", opts);
+  const ids = new Set<number>();
+  if (site.photo.mediaId) ids.add(site.photo.mediaId);
+  site.gallery.forEach((g) => g.photo.mediaId && ids.add(g.photo.mediaId));
+  const prev = items[(i + n - 1) % n];
+  const next = items[(i + 1) % n];
+  return {
+    site,
+    index: i,
+    total: n,
+    prev: { slug: prev.slug, name: prev.name },
+    next: { slug: next.slug, name: next.name },
+    guide: (page.content as unknown as PublishedDiveSites["content"]).guide,
+    media: await resolveMedia(ids),
+  };
+}

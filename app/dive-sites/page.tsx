@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
+import { getDiveSites } from "@/lib/cms/fetch";
+import { seoMetadata } from "@/lib/cms/seo";
 import { SitesView } from "./SitesView";
 
-const description = "33 dive sites around Alor, Pantar and Pura: walls, pinnacles, caverns and muck bays, each with a full site guide.";
+/** Rendered per request from the cached CMS API response (see lib/cms/fetch.ts). */
+export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Dive sites | Air Dive Alor",
-  description,
-  openGraph: { title: "Dive sites | Air Dive Alor", description, type: "website" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const data = await getDiveSites();
+  return seoMetadata(data.content.seo, data.media, "/dive-sites");
+}
 
-export default function SitesPage() {
-  return <SitesView />;
+export default async function SitesPage() {
+  return <SitesView data={await getDiveSites()} />;
 }

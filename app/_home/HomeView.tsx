@@ -4,11 +4,12 @@ import { useRef, useState } from "react";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Alert, AvatarWithText, Button, ButtonLink, Eyebrow, Icon, Input, Rating, Select, Tag, asIcon } from "@/components/ui";
-import type { I18n, MediaRef } from "@/lib/cms/fields";
+import type { I18n } from "@/lib/cms/fields";
 import type { HomeContent, PublishedHome } from "@/lib/cms/home-types";
-import { useLang } from "@/lib/i18n";
+import { useContent, type ContentHelpers } from "@/lib/cms/use-content";
 import { waLink } from "@/lib/site";
-import { SITES, siteHref } from "@/lib/sites";
+import type { SiteContent } from "@/lib/cms/dive-sites-types";
+import { siteHref } from "@/lib/sites";
 import { DepthGauge, type GaugeStop } from "./DepthGauge";
 import { Preloader } from "./Preloader";
 import "./home.css";
@@ -23,25 +24,15 @@ const scrollToId = (id: string) => {
   if (el) window.scrollTo({ top: window.scrollY + el.getBoundingClientRect().top - 64, behavior: "smooth" });
 };
 
-/** Helpers bound to the current language and the media resolved by the CMS API. */
-function useContent(data: PublishedHome) {
-  const { lang, t } = useLang();
-  /** Pick the visitor's language; fall back to English when the Indonesian text is empty. */
-  const L = (v: I18n | undefined) => (v ? (lang === "ID" && v.id.trim() ? v.id : v.en) : "");
-  const img = (ref: MediaRef | undefined, sizes = "100vw") => {
-    if (!ref) return null;
-    const m = ref.mediaId ? data.media[ref.mediaId] : null;
-    if (m) return { src: m.url, srcSet: m.srcSet || undefined, sizes: m.srcSet ? sizes : undefined, alt: L(m.alt), poster: m.poster };
-    return ref.url ? { src: ref.url, srcSet: undefined, sizes: undefined, alt: "", poster: undefined } : null;
-  };
-  return { L, img, t };
+function useHomeContent(data: PublishedHome) {
+  return useContent(data.media);
 }
-type Helpers = ReturnType<typeof useContent>;
+type Helpers = ContentHelpers;
 
 /** The Home page, rendered from CMS content (published, or drafts in the CMS preview). */
 export function HomeView({ data }: { data: PublishedHome }) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const h = useContent(data);
+  const h = useHomeContent(data);
   const c = data.content;
   const pkgIds = c.prices.packages.map((p) => p.id);
   const [pkg, setPkg] = useState(pkgIds.includes("stay") ? "stay" : pkgIds[0] ?? "");
@@ -76,7 +67,7 @@ export function HomeView({ data }: { data: PublishedHome }) {
             case "why":
               return <Why key={k} c={c} h={h} />;
             case "sites":
-              return <Sites key={k} c={c} h={h} />;
+              return <Sites key={k} c={c} h={h} sites={data.sites} />;
             case "stay":
               return <Stay key={k} c={c} h={h} />;
             case "reviews":
@@ -281,14 +272,15 @@ function Why({ c, h }: { c: HomeContent; h: Helpers }) {
   );
 }
 
-function Sites({ c, h }: { c: HomeContent; h: Helpers }) {
+/** Site picker: the sites chosen in the CMS, with details from the Dive site guides. Unpublished sites are skipped. */
+function Sites({ c, h, sites }: { c: HomeContent; h: Helpers; sites: Record<string, SiteContent> }) {
   const { L, img, t } = h;
-  const items = c.sites.items.map((x) => ({ ...x, site: SITES.find((s) => s.slug === x.slug) })).filter((x) => x.site);
+  const items = c.sites.items.map((x) => ({ ...x, site: sites[x.slug] })).filter((x) => x.site);
   const [i, setI] = useState(Math.max(0, Math.min(items.length - 1, (c.sites.defaultIndex || 1) - 1)));
   const sel = items[i];
   if (!sel?.site) return null;
   const s = sel.site;
-  const photo = img(sel.photo, "(min-width: 900px) 50vw, 100vw") ?? (s.photo ? { src: s.photo, srcSet: undefined, sizes: undefined, alt: "" } : null);
+  const photo = img(sel.photo, "(min-width: 900px) 50vw, 100vw") ?? img(s.photo, "(min-width: 900px) 50vw, 100vw");
   return (
     <section id="b-sites" data-theme="dark" className="section home-sites">
       <div className="section-intro home-sites__intro">
@@ -309,7 +301,7 @@ function Sites({ c, h }: { c: HomeContent; h: Helpers }) {
           <div className="home-sites__photo">{photo && <img src={photo.src} srcSet={photo.srcSet} sizes={photo.sizes} alt={photo.alt || `${s.name} photo`} />}</div>
           <div className="home-sites__title">
             <div className="home-sites__titletext">
-              <div className="home-sites__type">{t(s.type)}</div>
+              <div className="home-sites__type">{L(s.type)}</div>
               <h3 className="home-sites__h3">{s.name}</h3>
             </div>
             <ButtonLink href={siteHref(s.slug)} variant="text" size="large" icon="arrow-right" iconPosition="suffix">
@@ -320,22 +312,22 @@ function Sites({ c, h }: { c: HomeContent; h: Helpers }) {
             {(
               [
                 ["Depth", s.depth],
-                ["Level", s.level],
-                ["Current", s.current],
+                ["Level", L(s.level)],
+                ["Current", L(s.current)],
               ] as const
             ).map(([label, value]) => (
               <div key={label} className="home-sites__fact">
                 <span className="home-sites__fact-label">{t(label)}</span>
-                <span className="home-sites__fact-value">{value ? t(value) : "—"}</span>
+                <span className="home-sites__fact-value">{value || "—"}</span>
               </div>
             ))}
           </div>
           {s.see.length > 0 && (
             <div className="home-sites__see">
               <span className="home-sites__see-label">{L(c.sites.seeLabel)}</span>
-              {s.see.slice(0, 4).map((x) => (
-                <Tag key={x} icon="fish">
-                  {t(x)}
+              {s.see.slice(0, 4).map((x, k) => (
+                <Tag key={k} icon="fish">
+                  {L(x.name)}
                 </Tag>
               ))}
             </div>

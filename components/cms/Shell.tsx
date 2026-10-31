@@ -8,7 +8,14 @@ import { api } from "@/lib/cms/client";
 import { useCmsUser } from "./CmsUser";
 
 const NAV: { group: string; items: { href: string; label: string; icon: IconName; perm: string }[] }[] = [
-  { group: "Pages", items: [{ href: "/cms/pages/home", label: "Home", icon: "house", perm: "home.view" }] },
+  {
+    group: "Pages",
+    items: [
+      { href: "/cms/pages/home", label: "Home", icon: "house", perm: "home.view" },
+      { href: "/cms/pages/dive-sites", label: "Dive sites", icon: "waves", perm: "dive-sites.view" },
+    ],
+  },
+  { group: "Content", items: [{ href: "/cms/collections/sites", label: "Dive site guides", icon: "map-pin", perm: "sites.view" }] },
   { group: "Library", items: [{ href: "/cms/media", label: "Media", icon: "images", perm: "media.view" }] },
   {
     group: "Settings",
@@ -48,7 +55,7 @@ export function Shell({ children }: { children: ReactNode }) {
             <div key={g.group}>
               <div className="cms-side__group">{g.group}</div>
               {items.map((i) => (
-                <Link key={i.href} href={i.href} className="cms-nav" aria-current={path.startsWith(i.href) ? "page" : undefined}>
+                <Link key={i.href} href={i.href} className="cms-nav" aria-current={path === i.href || path.startsWith(i.href + "/") ? "page" : undefined}>
                   <Icon name={i.icon} size={18} />
                   {i.label}
                 </Link>
