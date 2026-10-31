@@ -38,9 +38,9 @@ These come from the prototypes and need confirming: home prices and package deta
 
 ---
 
-# CMS (Home and Dive sites)
+# CMS (all main pages)
 
-The Home and Dive sites pages, and every dive site guide, are managed in a CMS that lives in this app at `/cms`. It uses MySQL for content and users, MinIO for photos and videos, Redis with BullMQ for background media processing, and Brevo for emails.
+The Home, Dive sites, Facilities and rates, Dive courses, About us and Blog pages, every blog story, every dive site guide and every dive course are managed in a CMS that lives in this app at `/cms`. It uses MySQL for content and users, MinIO for photos and videos, Redis with BullMQ for background media processing, and Brevo for emails.
 
 ## Run it locally
 
@@ -49,7 +49,7 @@ cp .env.example .env          # then set SEED_ADMIN_PASSWORD (and BREVO_API_KEY 
 docker compose up -d          # MySQL, Redis, MinIO
 npm install
 npm run db:migrate            # create tables
-npm run cms:seed              # roles, first admin, page content, the 33 dive sites, import their photos
+npm run cms:seed              # roles, first admin, page content, dive sites, courses, blog stories and categories, import their photos
 npm run dev                   # website + CMS on http://localhost:3000, sign in at /cms
 npm run worker                # in a second terminal: processes uploads
 ```
@@ -60,20 +60,24 @@ In production, run `npm run build && npm start` for the app and `npm run worker`
 
 | Piece | Where |
 | --- | --- |
-| Page and collection registry (drives the API, CMS menus and permissions) | `lib/cms/registry.ts` |
-| Section and item definitions: fields, validation, editor form | `lib/cms/home-sections.ts`, `lib/cms/dive-sites-sections.ts`, `lib/cms/site-fields.ts`, `lib/cms/fields.ts` |
+| Page and collection registry (drives the API, CMS sidebar, start page and permissions) | `lib/cms/registry.ts` |
+| Section and item definitions: fields, validation, editor form | `lib/cms/home-sections.ts`, `lib/cms/dive-sites-sections.ts`, `lib/cms/facilities-sections.ts`, `lib/cms/courses-sections.ts`, `lib/cms/about-sections.ts`, `lib/cms/blog-sections.ts`, `lib/cms/site-fields.ts`, `lib/cms/post-fields.ts`, `lib/cms/course-fields.ts`, `lib/cms/fields.ts` |
 | Database schema and migrations (Drizzle ORM) | `lib/server/db/schema.ts`, `drizzle/` |
 | Admin API (session cookie, permission-checked) | `app/api/cms/**` |
-| Public API the website reads | `GET /api/public/pages/{home,dive-sites}`, `GET /api/public/sites/{slug}` |
+| Public API the website reads | `GET /api/public/pages/{home,dive-sites,facilities,dive-courses,about-us,blog}`, `GET /api/public/sites/{slug}`, `GET /api/public/courses/{slug}`, `GET /api/public/posts/{slug}` |
 | CMS screens | `app/cms/**`, `components/cms/**` |
 | Media worker (sharp, ffmpeg) | `scripts/worker.ts` |
 
 **Content workflow:** each page section has its own editor.
 - **Home:** SEO, Hero, Awards, Prices, Why Alor, Dive sites (picks guides from the collection), Safety stop, Reviews, FAQ, Book.
 - **Dive sites:** SEO, Site guide texts (shared labels and notes on every guide page), Hero, Highlights, Site list (title, page size, filter buttons, note), Call to action.
+- **Dive courses:** SEO, Course pages (texts shared by every course page: booking message and button, not-included list, requirements, closing box), Hero (title, intro, agency logos), Course list (level filter buttons, card buttons), Call to action.
+- **About us:** SEO, Hero (title, intro, photo, key facts), Our story (paragraphs, hosts, photo gallery with lightbox), Our name (text and meaning cards), Our boats (photo, text, specs), Call to action.
+- **Blog:** SEO, Story pages (texts shared by every story page: closing box and its WhatsApp message, “More stories”, the note on stories still on the old blog), Featured story (pick one, or leave empty for the newest), Story list (title, filters, stories per page), Call to action.
+- **Facilities and rates:** SEO, Hero, Rates at a glance, Stay, Diving, Boats, Gear and equipment, Diving rates, Call to action. In Diving rates, each package has a price table (days, nights, dives, price) or, when the table is empty, price cards (for pay per dive), plus its included and not-included lists. Tapping a table row opens WhatsApp with a message built from the row.
 - **Saving** stores a draft.
 - **Publishing** copies the draft to the live version and clears the page cache straight away.
-- **Preview drafts** (`/cms/preview/home`, `/cms/preview/dive-sites`) shows unpublished changes.
+- **Preview drafts** (`/cms/preview/<page>`, e.g. `/cms/preview/home`) shows unpublished changes.
 - **Order and visibility:** sections can be reordered and hidden. These changes apply to the live page as soon as they're saved.
 - **Languages:** every text field has English and Indonesian. When the Indonesian is empty, visitors see the English.
 
@@ -85,7 +89,16 @@ In production, run `npm run build && npm start` for the app and `npm run worker`
 - **Delete** is refused while a page still uses the guide (for example the Home "Dive sites" section).
 - **Filters** on the Dive sites page match words against each guide's English dive types (e.g. `wall` or `muck, macro`).
 
-**Website connection:** `app/page.tsx`, `app/dive-sites/page.tsx` and `app/dive-sites/[slug]/page.tsx` fetch the public API. Responses are cached for 5 minutes and refreshed the moment someone publishes. If the CMS can't be reached, the pages fall back to the built-in content in `lib/cms/home-defaults.ts` and `lib/cms/dive-sites-defaults.ts`. Set `CMS_API_URL` if the API runs somewhere else.
+**Dive courses (a collection):** the 12 courses live under *Content › Dive course packages* (`/cms/collections/courses`) and work like the dive site guides: draft, preview (`/cms/preview/courses/<id>`), publish, unpublish, hide, reorder, create and delete. Each course has its card fields (name, level, price, stay, dives, photo, intro), what's included (icon, item, details), the at-a-glance numbers, prerequisite and group size, what you'll learn, the day-by-day plan and instructor tips. The level filters on the Dive courses page match each course's level.
+
+**Blog stories and categories (collections):** stories live under *Content › Blog stories* (`/cms/collections/posts`) and are listed newest first by their date, not by hand.
+- **Fields:** title, excerpt, date, category (picked from *Blog categories*), author and initials, cover photo, and an optional link to the old blog.
+- **Body:** built from blocks: paragraph, heading, image, gallery, checklist, quote, facts, button link. Add a block, then reorder, duplicate or remove blocks.
+- **No body:** a story without a body shows its excerpt and a link to the old blog.
+- **Categories:** become the blog's filter buttons, in their list order.
+- **Deleting:** refused while something still uses the item: a category used by stories, or the story picked as featured.
+
+**Website connection:** `app/page.tsx`, `app/dive-sites/page.tsx`, `app/dive-sites/[slug]/page.tsx`, `app/facilities-and-rates/page.tsx`, `app/dive-courses/page.tsx`, `app/dive-courses/[id]/page.tsx`, `app/about-us/page.tsx`, `app/blog/page.tsx` and `app/blog/[slug]/page.tsx` fetch the public API. Responses are cached for 5 minutes and refreshed the moment someone publishes. If the CMS can't be reached, the pages fall back to the built-in content in `lib/cms/home-defaults.ts`, `lib/cms/dive-sites-defaults.ts`, `lib/cms/facilities-defaults.ts`, `lib/cms/courses-defaults.ts`, `lib/cms/about-defaults.ts` and `lib/cms/blog-defaults.ts`. Set `CMS_API_URL` if the API runs somewhere else.
 
 **Uploads (asynchronous):**
 1. The browser registers the file and gets a presigned URL.
@@ -101,15 +114,15 @@ Limits are 25 MB per image and 300 MB per video. Browsers upload directly, so th
 - **Users** are invited by email and set their own password from the invitation link (valid 7 days).
 - **Forgot password** emails a one-time link valid for 1 hour, sent through Brevo. Without `BREVO_API_KEY`, emails are printed to the server log instead.
 - **Roles** are sets of permissions, and a user gets every permission from all their roles. Permissions:
-  - per page (Home, Dive sites): view, one edit permission per section, publish, change layout
-  - per collection (Dive site guides): view, add/edit drafts, publish/hide/unpublish/reorder, delete
+  - per page (Home, Dive sites, Facilities and rates, Dive courses, About us, Blog): view, one edit permission per section, publish, change layout
+  - per collection (Dive site guides, Dive course packages, Blog stories, Blog categories): view, add/edit drafts, publish/hide/unpublish/reorder, delete
   - Media: view, upload, delete
   - Users: view, manage
   - Roles: manage
   - Activity log: view
 - **Built-in roles:**
   - **Super admin**: every permission. It can't be changed, and the last Super admin can't be removed.
-  - **Editor**: edit and publish all pages and dive site guides, upload media.
+  - **Editor**: edit and publish all pages and content (dive sites, courses, blog), upload media.
   - **Contributor**: edit drafts and upload media; can't publish.
   - **Viewer**: read only.
 - **Security:**

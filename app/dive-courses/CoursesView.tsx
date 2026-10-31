@@ -5,88 +5,141 @@ import Link from "next/link";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button, ButtonLink, Eyebrow, Tag } from "@/components/ui";
-import { COURSES, LEVELS, bookCourseMsg, courseHref } from "@/lib/courses";
-import { useLang } from "@/lib/i18n";
+import { bookMessage, type PublishedCourses } from "@/lib/cms/courses-types";
+import { useContent, type ContentHelpers } from "@/lib/cms/use-content";
+import { courseHref } from "@/lib/courses";
 import { waLink } from "@/lib/site";
 import "./courses.css";
 
-export function CoursesView() {
-  const { t } = useLang();
-  const [filter, setFilter] = useState<(typeof LEVELS)[number]>("All");
-  const shown = filter === "All" ? COURSES : COURSES.filter((c) => c.level === filter);
-
+/** The Dive courses page, rendered from CMS content (published, or drafts in the CMS preview). */
+export function CoursesView({ data }: { data: PublishedCourses }) {
+  const h = useContent(data.media);
   return (
     <div className="page">
       <SiteHeader current="courses" />
+      {data.order.map((k) => {
+        if (k === "hero") return <Hero key={k} data={data} h={h} />;
+        if (k === "list") return <List key={k} data={data} h={h} />;
+        if (k === "cta") return <Cta key={k} data={data} h={h} />;
+        return null;
+      })}
+      <SiteFooter />
+    </div>
+  );
+}
 
-      <section data-theme="dark" className="courses-hero">
-        <div className="courses-hero__text">
-          <Eyebrow onDark>{t("Dive courses · SDI and TDI")}</Eyebrow>
-          <h1 className="courses-hero__title">{t("Learn to dive in Alor.")}</h1>
-          <p className="courses-hero__lead">
-            {t("From your first breath underwater to Divemaster. Every package includes your stay, three meals a day, gear and airport transfers. Ask us about group rates with a private boat.")}
-          </p>
-        </div>
+type P = { data: PublishedCourses; h: ContentHelpers };
+
+function Hero({ data, h }: P) {
+  const { L, img } = h;
+  const c = data.content.hero;
+  const logos = c.logos.map((l) => ({ im: img(l.image, "160px"), alt: l.alt })).filter((l) => l.im);
+  return (
+    <section data-theme="dark" className="courses-hero">
+      <div className="courses-hero__text">
+        {L(c.eyebrow) && <Eyebrow onDark>{L(c.eyebrow)}</Eyebrow>}
+        <h1 className="courses-hero__title">{L(c.title)}</h1>
+        {L(c.lead) && <p className="courses-hero__lead">{L(c.lead)}</p>}
+      </div>
+      {logos.length > 0 && (
         <div className="courses-hero__logos">
-          <img src="https://airdivealor.com/public/img/sdi-logo-new.png" alt="SDI certified" />
-          <img src="https://airdivealor.com/public/img/TDI-Logo.png" alt="TDI certified" />
+          {logos.map((l, i) => (
+            <img key={i} src={l.im!.src} srcSet={l.im!.srcSet} sizes={l.im!.sizes} alt={l.alt || l.im!.alt} />
+          ))}
         </div>
-      </section>
+      )}
+    </section>
+  );
+}
 
-      <section className="courses-list">
+function List({ data, h }: P) {
+  const { L, img, t } = h;
+  const c = data.content.list;
+  const [filter, setFilter] = useState(0);
+  const level = c.filters[filter]?.level ?? "";
+  const shown = level ? data.courses.filter((x) => x.level === level) : data.courses;
+  const tpl = data.content.detail.bookMessage;
+
+  return (
+    <section id="courses" className="courses-list">
+      {c.filters.length > 1 && (
         <div role="tablist" aria-label={t("Course level")} className="chips courses-list__filters">
-          {LEVELS.map((l) => (
-            <Button key={l} variant={l === filter ? "primary" : "secondary"} size="small" aria-pressed={l === filter} onClick={() => setFilter(l)}>
-              {t(l)}
+          {c.filters.map((f, k) => (
+            <Button key={k} variant={k === filter ? "primary" : "secondary"} size="small" aria-pressed={k === filter} onClick={() => setFilter(k)}>
+              {L(f.label)}
             </Button>
           ))}
         </div>
-        <div className="courses-grid">
-          {shown.map((c) => (
-            <article key={c.id} className="course-card">
-              <Link href={courseHref(c.id)} className="course-card__media" tabIndex={-1}>
-                <img src={c.img} alt={t(c.name)} loading="lazy" />
+      )}
+      <div className="courses-grid">
+        {shown.map((x) => {
+          const photo = img(x.photo, "(min-width: 1040px) 33vw, (min-width: 700px) 50vw, 100vw");
+          const meta = [L(x.stay), L(x.dives)].filter(Boolean).join(" · ");
+          return (
+            <article key={x.slug} className="course-card">
+              <Link href={courseHref(x.slug)} className="course-card__media" tabIndex={-1}>
+                {photo && <img src={photo.src} srcSet={photo.srcSet} sizes={photo.sizes} alt={photo.alt || L(x.name)} loading="lazy" />}
                 <span className="course-card__tag">
-                  <Tag tone="primary">{t(c.level)}</Tag>
+                  <Tag tone="primary">{t(x.level)}</Tag>
                 </span>
               </Link>
               <div className="course-card__body">
-                <h2 className="course-card__name">{t(c.name)}</h2>
+                <h2 className="course-card__name">{L(x.name)}</h2>
                 <div className="course-card__price">
-                  <span className="course-card__amount">{c.price}</span>
-                  <span className="course-card__meta">{t(`${c.stay} · ${c.dives}`)}</span>
+                  <span className="course-card__amount">{x.price}</span>
+                  {meta && <span className="course-card__meta">{meta}</span>}
                 </div>
-                <p className="course-card__text">{t(c.text)}</p>
+                <p className="course-card__text">{L(x.text)}</p>
                 <div className="course-card__actions">
-                  <ButtonLink href={courseHref(c.id)} variant="text" icon="arrow-right" iconPosition="suffix">
-                    {t("What's included")}
-                  </ButtonLink>
-                  <ButtonLink href={waLink(bookCourseMsg(c))} external variant="primary" icon="message-circle">
-                    {t("Book now")}
-                  </ButtonLink>
+                  {L(c.moreLabel) && (
+                    <ButtonLink href={courseHref(x.slug)} variant="text" icon="arrow-right" iconPosition="suffix">
+                      {L(c.moreLabel)}
+                    </ButtonLink>
+                  )}
+                  {L(c.bookLabel) && (
+                    <ButtonLink href={waLink(bookMessage(tpl, x))} external variant="primary" icon="message-circle">
+                      {L(c.bookLabel)}
+                    </ButtonLink>
+                  )}
                 </div>
               </div>
             </article>
-          ))}
-        </div>
-      </section>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
-      <section data-theme="dark" className="cta-band cta-band--dark">
-        <div className="cta-band__text">
-          <h2 className="h2">{t("Coming as a group?")}</h2>
-          <p className="lead">{t("Contact us for a special group rate and dive with your own private boat. We reply within the hour, 7am to 9pm WITA.")}</p>
-        </div>
-        <div className="cta-band__actions">
-          <ButtonLink href={waLink("Hi Air Dive Alor, we are a group and would like a special rate for a dive course.")} external variant="primary" size="xlarge" icon="message-circle">
-            {t("Chat on WhatsApp")}
+function Cta({ data, h }: P) {
+  const { L } = h;
+  const c = data.content.cta;
+  const phone = /whatsapp|wa\.me|^tel:/i.test(c.secondaryUrl);
+  return (
+    <section data-theme="dark" className="cta-band cta-band--dark">
+      <div className="cta-band__text">
+        <h2 className="h2">{L(c.title)}</h2>
+        {L(c.text) && <p className="lead">{L(c.text)}</p>}
+      </div>
+      <div className="cta-band__actions">
+        {L(c.primaryLabel) && (
+          <ButtonLink href={waLink(c.primaryMessage || undefined)} external variant="primary" size="xlarge" icon="message-circle">
+            {L(c.primaryLabel)}
           </ButtonLink>
-          <ButtonLink href={waLink()} external variant="secondary" size="xlarge" icon="phone">
-            +62 813-9550-5313
+        )}
+        {L(c.secondaryLabel) && c.secondaryUrl && (
+          <ButtonLink
+            href={c.secondaryUrl}
+            external={/^(https?:|tel:)/.test(c.secondaryUrl)}
+            variant="secondary"
+            size="xlarge"
+            icon={phone ? "phone" : "arrow-right"}
+            iconPosition={phone ? undefined : "suffix"}
+          >
+            {L(c.secondaryLabel)}
           </ButtonLink>
-        </div>
-      </section>
-
-      <SiteFooter />
-    </div>
+        )}
+      </div>
+    </section>
   );
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/cms/client";
 import { Button, Icon } from "@/components/ui";
-import { emptyObject, type Field, type I18n, type MediaRef } from "@/lib/cms/fields";
+import { emptyObject, type BlockKind, type Field, type I18n, type MediaRef } from "@/lib/cms/fields";
 import type { ResolvedMedia } from "@/lib/cms/home-types";
 import { MediaPicker, type MediaItem } from "./media";
 
@@ -152,6 +152,15 @@ function FieldInput({ field: f, value, onChange, path, ctx }: { field: Field; va
       return wrap(<RefInput id={id} collection={f.collection} value={(value as string) ?? ""} readOnly={ctx.readOnly} onChange={onChange} />, id);
     case "list":
       return <ListInput field={f} value={(value as Record<string, unknown>[]) ?? []} onChange={onChange} path={path} ctx={ctx} error={error} />;
+    case "blocks":
+      return <BlocksInput field={f} value={(value as Record<string, unknown>[]) ?? []} onChange={onChange} path={path} ctx={ctx} error={error} />;
+    case "date":
+      return wrap(
+        <div className="tw-field__control" style={{ maxWidth: 240 }}>
+          <input id={id} className="tw-field__input" type="date" value={(value as string) ?? ""} readOnly={ctx.readOnly} onChange={(e) => onChange(e.target.value)} />
+        </div>,
+        id,
+      );
   }
 }
 
@@ -277,6 +286,106 @@ function ListInput({ field: f, value, onChange, path, ctx, error }: { field: Ext
             }}
           >
             Add {f.itemLabel.toLowerCase()}
+          </Button>
+        </div>
+      )}
+      {error && <span className="cms-field__error">{error}</span>}
+    </div>
+  );
+}
+
+/** Short preview text for a block: its title field, else its first text. */
+function blockTitle(k: BlockKind | undefined, item: Record<string, unknown>) {
+  if (!k) return "Unknown block";
+  const keys = k.titleKey ? [k.titleKey] : k.fields.map((f) => f.key);
+  for (const key of keys) {
+    const v = item?.[key];
+    const text = typeof v === "string" ? v : v && typeof v === "object" && "en" in v ? (v as I18n).en : "";
+    if (text) return text.length > 70 ? text.slice(0, 70) + "…" : text;
+  }
+  return "";
+}
+
+/** Mixed blocks (e.g. a story body): like a list, but each item has a kind with its own fields. */
+function BlocksInput({ field: f, value, onChange, path, ctx, error }: { field: Extract<Field, { type: "blocks" }>; value: Record<string, unknown>[]; onChange: (v: unknown) => void; path: Path; ctx: Ctx; error?: string }) {
+  const [open, setOpen] = useState<number | null>(null);
+  const [kind, setKind] = useState(f.kinds[0]?.type ?? "");
+  const kindOf = (item: Record<string, unknown>) => f.kinds.find((k) => k.type === item?.type);
+  const set = (i: number, v: Record<string, unknown>) => onChange(value.map((x, j) => (j === i ? { ...v, type: x.type } : x)));
+  const move = (i: number, d: -1 | 1) => {
+    const next = [...value];
+    [next[i], next[i + d]] = [next[i + d], next[i]];
+    onChange(next);
+    if (open === i) setOpen(i + d);
+  };
+  const canAdd = !ctx.readOnly && (f.max == null || value.length < f.max);
+  const add = () => {
+    const k = f.kinds.find((x) => x.type === kind);
+    if (!k) return;
+    onChange([...value, { type: k.type, ...emptyObject(k.fields) }]);
+    setOpen(value.length);
+  };
+  return (
+    <div className="cms-field" data-error={error ? "" : undefined}>
+      <Label field={f} />
+      <div className="cms-list">
+        {value.map((item, i) => {
+          const k = kindOf(item);
+          const bad = errUnder(ctx.errors, [...path, i]);
+          const isOpen = open === i || bad;
+          const title = blockTitle(k, item);
+          return (
+            <div key={i} className="cms-item" data-error={bad ? "" : undefined}>
+              <div className="cms-item__head">
+                <button type="button" className="cms-item__toggle" aria-expanded={!!isOpen} onClick={() => setOpen(open === i ? null : i)}>
+                  <Icon name={isOpen ? "chevron-down" : "chevron-right"} size={16} />
+                  <span className="cms-item__num">{i + 1}</span>
+                  <span>
+                    <strong>{k?.label ?? String(item?.type)}</strong>
+                    {title && <span className="cms-muted"> · {title}</span>}
+                  </span>
+                </button>
+                {!ctx.readOnly && (
+                  <>
+                    <button type="button" className="cms-iconbtn" aria-label="Move up" disabled={i === 0} onClick={() => move(i, -1)}>
+                      <Icon name="chevron-up" size={16} />
+                    </button>
+                    <button type="button" className="cms-iconbtn" aria-label="Move down" disabled={i === value.length - 1} onClick={() => move(i, 1)}>
+                      <Icon name="chevron-down" size={16} />
+                    </button>
+                    <button type="button" className="cms-iconbtn" aria-label="Duplicate" disabled={!canAdd} onClick={() => onChange([...value.slice(0, i + 1), structuredClone(item), ...value.slice(i + 1)])}>
+                      <Icon name="copy" size={16} />
+                    </button>
+                    <button type="button" className="cms-iconbtn cms-iconbtn--danger" aria-label="Remove block" onClick={() => confirm(`Remove this ${(k?.label ?? "block").toLowerCase()}?`) && onChange(value.filter((_, j) => j !== i))}>
+                      <Icon name="trash-2" size={16} />
+                    </button>
+                  </>
+                )}
+              </div>
+              {isOpen && k && (
+                <div className="cms-item__body">
+                  <Fields fields={k.fields} value={item} onChange={(v) => set(i, v)} path={[...path, i]} ctx={ctx} />
+                </div>
+              )}
+            </div>
+          );
+        })}
+        {!value.length && <div className="cms-muted">Nothing here yet.</div>}
+      </div>
+      {canAdd && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <div className="tw-field__control tw-field__control--select" style={{ maxWidth: 220 }}>
+            <select aria-label="Block type" className="tw-field__input tw-field__select" value={kind} onChange={(e) => setKind(e.target.value)}>
+              {f.kinds.map((k) => (
+                <option key={k.type} value={k.type}>
+                  {k.label}
+                </option>
+              ))}
+            </select>
+            <Icon name="chevron-down" size={20} className="tw-field__icon" />
+          </div>
+          <Button variant="secondary" size="small" icon="plus" onClick={add}>
+            Add block
           </Button>
         </div>
       )}

@@ -1,6 +1,14 @@
 import { headers } from "next/headers";
+import { ABOUT_DEFAULTS } from "./about-defaults";
+import { toCard, type PublishedBlog, type PublishedPost } from "./blog-cms-types";
+import { BLOG_DEFAULTS, CATEGORIES_DEFAULTS, POSTS_DEFAULTS } from "./blog-defaults";
+import type { PublishedAbout } from "./about-types";
+import { COURSES_DEFAULTS, COURSES_PAGE_DEFAULTS } from "./courses-defaults";
+import type { PublishedCourse, PublishedCourses } from "./courses-types";
 import { DIVE_SITES_DEFAULTS, SITES_DEFAULTS } from "./dive-sites-defaults";
 import type { PublishedDiveSites, PublishedSite } from "./dive-sites-types";
+import { FACILITIES_DEFAULTS } from "./facilities-defaults";
+import type { PublishedFacilities } from "./facilities-types";
 import { HOME_DEFAULTS } from "./home-defaults";
 import type { PublishedHome } from "./home-types";
 import { collectionTag, pageTag } from "./tags";
@@ -43,6 +51,22 @@ export const FALLBACK_DIVE_SITES: PublishedDiveSites = {
   publishedAt: null,
 };
 
+export const FALLBACK_FACILITIES: PublishedFacilities = {
+  content: FACILITIES_DEFAULTS,
+  order: ["hero", "glance", "stay", "diving", "boats", "gear", "rates", "cta"],
+  media: {},
+  publishedAt: null,
+};
+
+export async function getFacilities(): Promise<PublishedFacilities> {
+  try {
+    return (await cmsGet<PublishedFacilities>("/api/public/pages/facilities", [pageTag("facilities")])) ?? FALLBACK_FACILITIES;
+  } catch (e) {
+    warn("facilities", e);
+    return FALLBACK_FACILITIES;
+  }
+}
+
 export async function getHome(): Promise<PublishedHome> {
   try {
     return (await cmsGet<PublishedHome>("/api/public/pages/home", [pageTag("home"), collectionTag("sites")])) ?? FALLBACK_HOME;
@@ -73,5 +97,93 @@ export async function getSite(slug: string): Promise<PublishedSite | null> {
     const prev = SITES_DEFAULTS[(i + n - 1) % n];
     const next = SITES_DEFAULTS[(i + 1) % n];
     return { site: SITES_DEFAULTS[i], index: i, total: n, prev: { slug: prev.slug, name: prev.name }, next: { slug: next.slug, name: next.name }, guide: DIVE_SITES_DEFAULTS.guide, media: {} };
+  }
+}
+
+export const FALLBACK_COURSES: PublishedCourses = {
+  content: COURSES_PAGE_DEFAULTS,
+  order: ["hero", "list", "cta"],
+  courses: COURSES_DEFAULTS,
+  media: {},
+  publishedAt: null,
+};
+
+export async function getCourses(): Promise<PublishedCourses> {
+  try {
+    return (await cmsGet<PublishedCourses>("/api/public/pages/dive-courses", [pageTag("dive-courses"), collectionTag("courses")])) ?? FALLBACK_COURSES;
+  } catch (e) {
+    warn("dive courses", e);
+    return FALLBACK_COURSES;
+  }
+}
+
+/** One course page, or null when the course isn't published (the page then shows 404). */
+export async function getCourse(slug: string): Promise<PublishedCourse | null> {
+  try {
+    return await cmsGet<PublishedCourse>(`/api/public/courses/${encodeURIComponent(slug)}`, [pageTag("dive-courses"), collectionTag("courses")]);
+  } catch (e) {
+    warn(`course ${slug}`, e);
+    const i = COURSES_DEFAULTS.findIndex((c) => c.slug === slug);
+    if (i < 0) return null;
+    const n = COURSES_DEFAULTS.length;
+    const prev = COURSES_DEFAULTS[(i + n - 1) % n];
+    const next = COURSES_DEFAULTS[(i + 1) % n];
+    return { course: COURSES_DEFAULTS[i], index: i, total: n, prev: { slug: prev.slug, name: prev.name }, next: { slug: next.slug, name: next.name }, detail: COURSES_PAGE_DEFAULTS.detail, media: {} };
+  }
+}
+
+export const FALLBACK_ABOUT: PublishedAbout = { content: ABOUT_DEFAULTS, order: ["hero", "story", "name", "boats", "cta"], media: {}, publishedAt: null };
+
+export async function getAbout(): Promise<PublishedAbout> {
+  try {
+    return (await cmsGet<PublishedAbout>("/api/public/pages/about-us", [pageTag("about-us")])) ?? FALLBACK_ABOUT;
+  } catch (e) {
+    warn("about us", e);
+    return FALLBACK_ABOUT;
+  }
+}
+
+const BLOG_TAGS = [pageTag("blog"), collectionTag("posts"), collectionTag("categories")];
+
+export const FALLBACK_BLOG: PublishedBlog = {
+  content: BLOG_DEFAULTS,
+  order: ["hero", "stories", "cta"],
+  posts: POSTS_DEFAULTS.map(toCard),
+  categories: CATEGORIES_DEFAULTS,
+  media: {},
+  publishedAt: null,
+};
+
+export async function getBlog(): Promise<PublishedBlog> {
+  try {
+    return (await cmsGet<PublishedBlog>("/api/public/pages/blog", BLOG_TAGS)) ?? FALLBACK_BLOG;
+  } catch (e) {
+    warn("blog", e);
+    return FALLBACK_BLOG;
+  }
+}
+
+/** One story, or null when it isn't published (the page then shows 404). */
+export async function getPost(slug: string): Promise<PublishedPost | null> {
+  try {
+    return await cmsGet<PublishedPost>(`/api/public/posts/${encodeURIComponent(slug)}`, BLOG_TAGS);
+  } catch (e) {
+    warn(`story ${slug}`, e);
+    const all = POSTS_DEFAULTS;
+    const i = all.findIndex((p) => p.slug === slug);
+    if (i < 0) return null;
+    const post = all[i];
+    const others = all.filter((x) => x !== post);
+    const more = others.filter((x) => x.category === post.category).concat(others.filter((x) => x.category !== post.category)).slice(0, 3).map(toCard);
+    return {
+      post,
+      minutes: toCard(post).minutes,
+      newer: i > 0 ? toCard(all[i - 1]) : null,
+      older: i < all.length - 1 ? toCard(all[i + 1]) : null,
+      more,
+      categories: CATEGORIES_DEFAULTS,
+      texts: BLOG_DEFAULTS.post,
+      media: {},
+    };
   }
 }

@@ -3,19 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { Icon, type IconName } from "@/components/ui";
+import { Icon, asIcon, type IconName } from "@/components/ui";
+import { COLLECTIONS, PAGES } from "@/lib/cms/registry";
 import { api } from "@/lib/cms/client";
 import { useCmsUser } from "./CmsUser";
 
 const NAV: { group: string; items: { href: string; label: string; icon: IconName; perm: string }[] }[] = [
-  {
-    group: "Pages",
-    items: [
-      { href: "/cms/pages/home", label: "Home", icon: "house", perm: "home.view" },
-      { href: "/cms/pages/dive-sites", label: "Dive sites", icon: "waves", perm: "dive-sites.view" },
-    ],
-  },
-  { group: "Content", items: [{ href: "/cms/collections/sites", label: "Dive site guides", icon: "map-pin", perm: "sites.view" }] },
+  { group: "Pages", items: PAGES.map((p) => ({ href: `/cms/pages/${p.slug}`, label: p.label, icon: asIcon(p.icon), perm: `${p.slug}.view` })) },
+  { group: "Content", items: COLLECTIONS.map((c) => ({ href: `/cms/collections/${c.key}`, label: c.label, icon: asIcon(c.icon), perm: `${c.key}.view` })) },
   { group: "Library", items: [{ href: "/cms/media", label: "Media", icon: "images", perm: "media.view" }] },
   {
     group: "Settings",

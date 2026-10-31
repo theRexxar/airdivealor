@@ -1,22 +1,32 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { PublishedAbout } from "@/lib/cms/about-types";
+import type { PublishedBlog, PublishedPost } from "@/lib/cms/blog-cms-types";
+import type { PublishedCourse, PublishedCourses } from "@/lib/cms/courses-types";
 import type { PublishedDiveSites, PublishedSite } from "@/lib/cms/dive-sites-types";
+import type { PublishedFacilities } from "@/lib/cms/facilities-types";
 import type { PublishedHome } from "@/lib/cms/home-types";
 import { HomeView } from "../../_home/HomeView";
+import { AboutView } from "../../about-us/AboutView";
+import { PostView } from "../../blog/[slug]/PostView";
+import { BlogIndex } from "../../blog/BlogIndex";
+import { CourseDetailView } from "../../dive-courses/[id]/CourseDetailView";
+import { CoursesView } from "../../dive-courses/CoursesView";
 import { SiteGuideView } from "../../dive-sites/[slug]/SiteGuideView";
 import { SitesView } from "../../dive-sites/SitesView";
+import { FacilitiesView } from "../../facilities-and-rates/FacilitiesView";
 
 /** Loads draft content from the CMS API and renders it with the website's own components, under a preview banner. */
-export function PreviewClient({ kind, slug, anchors, back }: { kind: "page" | "site"; slug: string; anchors: Record<string, string>; back: string }) {
+export function PreviewClient({ kind, collection, slug, anchors, back }: { kind: "page" | "item"; collection?: string; slug: string; anchors: Record<string, string>; back: string }) {
   const [data, setData] = useState<unknown>(null);
   const [error, setError] = useState("");
   useEffect(() => {
-    const url = kind === "page" ? `/api/cms/pages/${slug}/preview` : `/api/cms/collections/sites/${slug}/preview`;
+    const url = kind === "page" ? `/api/cms/pages/${slug}/preview` : `/api/cms/collections/${collection}/${slug}/preview`;
     fetch(url, { credentials: "same-origin" })
       .then(async (r) => (r.ok ? setData(await r.json()) : setError((await r.json()).error ?? "Could not load the preview.")))
       .catch(() => setError("Could not load the preview."));
-  }, [kind, slug]);
+  }, [kind, collection, slug]);
   useEffect(() => {
     if (!data || !location.hash) return;
     const id = anchors[location.hash.slice(1)];
@@ -24,9 +34,15 @@ export function PreviewClient({ kind, slug, anchors, back }: { kind: "page" | "s
   }, [data, anchors, slug]);
 
   let view = null;
-  if (data && kind === "site") view = <SiteGuideView data={data as PublishedSite} />;
-  else if (data && slug === "home") view = <HomeView data={data as PublishedHome} />;
-  else if (data && slug === "dive-sites") view = <SitesView data={data as PublishedDiveSites} />;
+  if (data && kind === "item" && collection === "sites") view = <SiteGuideView data={data as PublishedSite} />;
+  else if (data && kind === "item" && collection === "posts") view = <PostView data={data as PublishedPost} />;
+  else if (data && kind === "item" && collection === "courses") view = <CourseDetailView data={data as PublishedCourse} />;
+  else if (data && kind === "page" && slug === "home") view = <HomeView data={data as PublishedHome} />;
+  else if (data && kind === "page" && slug === "dive-sites") view = <SitesView data={data as PublishedDiveSites} />;
+  else if (data && kind === "page" && slug === "dive-courses") view = <CoursesView data={data as PublishedCourses} />;
+  else if (data && kind === "page" && slug === "blog") view = <BlogIndex data={data as PublishedBlog} />;
+  else if (data && kind === "page" && slug === "about-us") view = <AboutView data={data as PublishedAbout} />;
+  else if (data && kind === "page" && slug === "facilities") view = <FacilitiesView data={data as PublishedFacilities} />;
 
   return (
     <>

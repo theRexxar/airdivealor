@@ -34,7 +34,19 @@ export type Field =
   /** Pick an item from a CMS collection (stores its slug), e.g. a dive site. */
   | (Base & { type: "ref"; collection: string; required?: boolean })
   | (Base & { type: "group"; fields: Field[] })
-  | (Base & { type: "list"; itemLabel: string; fields: Field[]; min?: number; max?: number; titleKey?: string });
+  | (Base & { type: "list"; itemLabel: string; fields: Field[]; min?: number; max?: number; titleKey?: string })
+  /** A calendar date, stored as YYYY-MM-DD. */
+  | (Base & { type: "date"; required?: boolean })
+  /** A list of mixed blocks (e.g. a story body): each item has a `type` and that kind's own fields. */
+  | (Base & { type: "blocks"; kinds: BlockKind[]; max?: number });
+
+export interface BlockKind {
+  type: string;
+  label: string;
+  fields: Field[];
+  /** Field shown as the block's title in the editor. */
+  titleKey?: string;
+}
 
 const i18nSchema = (f: { required?: boolean; max?: number }) => {
   const s = z.string().trim().max(f.max ?? 2000);
@@ -81,6 +93,26 @@ function fieldSchema(f: Field): z.ZodTypeAny {
     }
     case "group":
       return schemaFor(f.fields);
+    case "date": {
+      const s = z.string().trim();
+      return f.required ? s.regex(/^\d{4}-\d{2}-\d{2}$/, `Pick a ${f.label.toLowerCase()}`) : z.union([z.literal(""), s.regex(/^\d{4}-\d{2}-\d{2}$/, "Use a date like 2024-05-31")]);
+    }
+    case "blocks": {
+      const schemas = new Map(f.kinds.map((k) => [k.type, schemaFor([...k.fields, { type: "text", key: "type", label: "Type" }])]));
+      return z
+        .array(z.unknown())
+        .max(f.max ?? 200)
+        .superRefine((arr, ctx) => {
+          arr.forEach((item, i) => {
+            const type = (item as { type?: unknown } | null)?.type;
+            const sch = typeof type === "string" ? schemas.get(type) : undefined;
+            if (!sch) return ctx.addIssue({ code: "custom", path: [i, "type"], message: "Unknown block type" });
+            const r = sch.safeParse(item);
+            if (!r.success) for (const iss of r.error.issues) ctx.addIssue({ code: "custom", path: [i, ...iss.path], message: iss.message });
+          });
+        })
+        .transform((arr) => arr.map((item) => schemas.get((item as { type: string }).type)!.parse(item)));
+    }
     case "list": {
       let s = z.array(schemaFor(f.fields));
       if (f.min != null) s = s.min(f.min, `Add at least ${f.min} ${f.itemLabel.toLowerCase()}`);
@@ -111,7 +143,10 @@ export function emptyValue(f: Field): unknown {
     case "group":
       return emptyObject(f.fields);
     case "list":
+    case "blocks":
       return [];
+    case "date":
+      return new Date().toISOString().slice(0, 10);
   }
 }
 
@@ -129,6 +164,11 @@ export function collectMediaIds(fields: Field[], value: unknown, out = new Set<n
       if (id) out.add(id);
     } else if (f.type === "group") collectMediaIds(f.fields, x, out);
     else if (f.type === "list" && Array.isArray(x)) x.forEach((item) => collectMediaIds(f.fields, item, out));
+    else if (f.type === "blocks" && Array.isArray(x))
+      x.forEach((item) => {
+        const k = f.kinds.find((k) => k.type === (item as { type?: string })?.type);
+        if (k) collectMediaIds(k.fields, item, out);
+      });
   }
   return out;
 }
@@ -145,6 +185,8 @@ export const F = {
   video: (key: string, label: string, help?: string): Field => ({ type: "media", key, label, accept: "video", help }),
   ref: (key: string, label: string, collection: string, o: { required?: boolean; help?: string } = {}): Field => ({ type: "ref", key, label, collection, ...o }),
   group: (key: string, label: string, fields: Field[], help?: string): Field => ({ type: "group", key, label, fields, help }),
+  date: (key: string, label: string, o: { required?: boolean; help?: string } = {}): Field => ({ type: "date", key, label, ...o }),
+  blocks: (key: string, label: string, kinds: BlockKind[], o: { max?: number; help?: string } = {}): Field => ({ type: "blocks", key, label, kinds, ...o }),
   list: (key: string, label: string, itemLabel: string, fields: Field[], o: { min?: number; max?: number; titleKey?: string; help?: string } = {}): Field => ({
     type: "list",
     key,

@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
+import { getBlog } from "@/lib/cms/fetch";
+import { seoMetadata } from "@/lib/cms/seo";
 import { BlogIndex } from "./BlogIndex";
 
-const description = "Stories from Air Dive Alor: marine life, the best time to dive, our boats and life in Alor Kecil village.";
+/** Rendered per request from the cached CMS API response (see lib/cms/fetch.ts). */
+export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Blog | Air Dive Alor",
-  description,
-  openGraph: { title: "Blog | Air Dive Alor", description, type: "website" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const data = await getBlog();
+  return seoMetadata(data.content.seo, data.media, "/blog");
+}
 
-export default function BlogPage() {
-  return <BlogIndex />;
+export default async function BlogPage() {
+  return <BlogIndex data={await getBlog()} />;
 }

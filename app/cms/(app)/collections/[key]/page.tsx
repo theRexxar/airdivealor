@@ -86,7 +86,7 @@ export default function CollectionPage() {
         sub={def.description}
         actions={
           <>
-            <ButtonLink href="/dive-sites" external variant="secondary" icon="external-link">
+            <ButtonLink href={def.listHref} external variant="secondary" icon="external-link">
               Live page
             </ButtonLink>
             {perm.edit && (
@@ -141,7 +141,7 @@ export default function CollectionPage() {
             {counts.live} of {counts.total} on the website
           </span>
         </div>
-        {filtering && perm.publish && <div className="cms-muted" style={{ padding: "10px 20px 0" }}>Clear the search and status filter to reorder.</div>}
+        {filtering && perm.publish && !def.sortField && <div className="cms-muted" style={{ padding: "10px 20px 0" }}>Clear the search and status filter to reorder.</div>}
         <div className="cms-sections">
           {shown.map((it) => {
             const i = items.indexOf(it);
@@ -149,7 +149,7 @@ export default function CollectionPage() {
             return (
               <div key={it.id} className="cms-section" style={{ gridTemplateColumns: "auto 72px minmax(0,1fr) auto" }}>
                 <div className="cms-section__order">
-                  {perm.publish && !filtering ? (
+                  {perm.publish && !filtering && !def.sortField ? (
                     <>
                       <button type="button" className="cms-iconbtn" aria-label={`Move ${it.title} up`} disabled={i === 0} onClick={() => move(i, -1)}>
                         <Icon name="chevron-up" size={16} />

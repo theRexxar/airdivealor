@@ -1,14 +1,12 @@
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { collectMediaIds } from "@/lib/cms/fields";
-import { PAGES } from "@/lib/cms/registry";
 import { audit } from "@/lib/server/audit";
 import { can } from "@/lib/server/auth";
-import { getItem, itemStatus, requireCollection, validateItem } from "@/lib/server/collection-service";
+import { getItem, itemStatus, itemUsers, requireCollection, validateItem } from "@/lib/server/collection-service";
 import { db, schema } from "@/lib/server/db";
 import { body, handle, HttpError, ok, requireUser } from "@/lib/server/http";
 import { resolveMedia } from "@/lib/server/media-service";
-import { pageSections } from "@/lib/server/page-service";
 import { expireCollection } from "@/lib/server/revalidate";
 
 type Ctx = { params: Promise<{ key: string; id: string }> };
@@ -48,12 +46,7 @@ export const DELETE = handle(async (_req, ctx: Ctx) => {
   const { key, id } = await ctx.params;
   const me = await requireUser(`${key}.delete`);
   const r = await getItem(key, Number(id));
-  const users: string[] = [];
-  for (const p of PAGES) {
-    for (const s of await pageSections(p.slug).catch(() => [])) {
-      if (JSON.stringify([s.draft, s.published]).includes(`"slug":"${r.slug}"`)) users.push(`${p.label} › ${p.sections.find((x) => x.key === s.key)?.label ?? s.key}`);
-    }
-  }
+  const users = await itemUsers(key, r.slug);
   if (users.length) throw new HttpError(409, `This item is still used on: ${users.join(", ")}. Remove it there first.`);
   await db.delete(schema.collectionItems).where(eq(schema.collectionItems.id, r.id));
   if (r.published) expireCollection(key);

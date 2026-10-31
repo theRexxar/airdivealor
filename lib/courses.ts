@@ -1,9 +1,2 @@
-import { COURSES, DETAILS } from "./courses-data";
-import type { Course, CourseLevel } from "./courses-types";
-
-export { COURSES, DETAILS };
-export type { Course, CourseLevel };
-
-export const LEVELS: ("All" | CourseLevel)[] = ["All", "Beginner", "Advanced", "Specialty", "Professional", "Technical", "Custom"];
+/** Link to a course page. Course content lives in the CMS ("courses" collection); lib/courses-data.ts is only the source of the built-in defaults. */
 export const courseHref = (id: string) => `/dive-courses/${id}`;
-export const bookCourseMsg = (c: Course) => `Hi Air Dive Alor, I would like to book the ${c.name} (${c.price}).`;

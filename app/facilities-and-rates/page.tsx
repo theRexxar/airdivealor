@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
+import { getFacilities } from "@/lib/cms/fetch";
+import { seoMetadata } from "@/lib/cms/seo";
 import { FacilitiesView } from "./FacilitiesView";
 
-const description = "Stay in Alor Kecil village with three home-cooked meals a day, and dive with our two boats. Dive packages from five days, or pay per dive.";
+/** Rendered per request from the cached CMS API response (see lib/cms/fetch.ts). */
+export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Facilities and rates | Air Dive Alor",
-  description,
-  openGraph: { title: "Facilities and rates | Air Dive Alor", description, type: "website" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const data = await getFacilities();
+  return seoMetadata(data.content.seo, data.media, "/facilities-and-rates");
+}
 
-export default function FacilitiesPage() {
-  return <FacilitiesView />;
+export default async function FacilitiesPage() {
+  return <FacilitiesView data={await getFacilities()} />;
 }

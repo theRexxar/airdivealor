@@ -15,6 +15,8 @@ export interface SectionDef {
 export const ICON_OPTIONS = [
   "badge-check", "shield-check", "users", "star", "award", "fish", "mountain", "waves", "eye", "anchor", "bed", "plane", "utensils",
   "clock", "coffee", "camera", "ship", "life-buoy", "map-pin", "sun", "heart", "message-circle", "flower-2", "search", "wind", "compass",
+  "house", "bed-double", "bed-single", "shower-head", "snowflake", "vault", "laptop", "tree-palm", "gauge", "droplets", "megaphone",
+  "backpack", "container", "fan", "percent", "ticket", "gift", "book-open", "clipboard-list", "laptop-minimal", "check", "graduation-cap", "calendar-days",
 ].map((v) => ({ value: v, label: v }));
 
 export const eyebrowTitle = (title = "Title"): Field[] => [
