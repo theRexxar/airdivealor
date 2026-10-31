@@ -1,4 +1,6 @@
 import { headers } from "next/headers";
+import { ABOUT_DEFAULTS } from "./about-defaults";
+import type { PublishedAbout } from "./about-types";
 import { COURSES_DEFAULTS, COURSES_PAGE_DEFAULTS } from "./courses-defaults";
 import type { PublishedCourse, PublishedCourses } from "./courses-types";
 import { DIVE_SITES_DEFAULTS, SITES_DEFAULTS } from "./dive-sites-defaults";
@@ -125,5 +127,16 @@ export async function getCourse(slug: string): Promise<PublishedCourse | null> {
     const prev = COURSES_DEFAULTS[(i + n - 1) % n];
     const next = COURSES_DEFAULTS[(i + 1) % n];
     return { course: COURSES_DEFAULTS[i], index: i, total: n, prev: { slug: prev.slug, name: prev.name }, next: { slug: next.slug, name: next.name }, detail: COURSES_PAGE_DEFAULTS.detail, media: {} };
+  }
+}
+
+export const FALLBACK_ABOUT: PublishedAbout = { content: ABOUT_DEFAULTS, order: ["hero", "story", "name", "boats", "cta"], media: {}, publishedAt: null };
+
+export async function getAbout(): Promise<PublishedAbout> {
+  try {
+    return (await cmsGet<PublishedAbout>("/api/public/pages/about-us", [pageTag("about-us")])) ?? FALLBACK_ABOUT;
+  } catch (e) {
+    warn("about us", e);
+    return FALLBACK_ABOUT;
   }
 }
