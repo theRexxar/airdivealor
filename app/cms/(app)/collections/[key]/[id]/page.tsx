@@ -11,7 +11,7 @@ import { Alert, Button, ButtonLink } from "@/components/ui";
 import { api, ApiError, fmtDate } from "@/lib/cms/client";
 import { emptyObject } from "@/lib/cms/fields";
 import type { ResolvedMedia } from "@/lib/cms/home-types";
-import { collectionDef } from "@/lib/cms/registry";
+import { collectionDef, itemTitle } from "@/lib/cms/registry";
 import { Forbidden } from "../../../Forbidden";
 
 type Status = "draft" | "live" | "changed" | "hidden";
@@ -90,7 +90,7 @@ export default function ItemEditorPage() {
   if (!data || !value) return <div className="cms-card"><div className="cms-empty">Loading…</div></div>;
 
   const readOnly = !data.can.edit;
-  const title = isNew ? `New ${def.itemLabel}` : String(value[def.titleField] || data.draft[def.titleField] || def.itemLabel);
+  const title = isNew ? `New ${def.itemLabel}` : (itemTitle(def, value) || itemTitle(def, data.draft) || def.itemLabel);
   const liveSlug = (data.published?.slug as string | undefined) ?? null;
   const hasChanges = data.status === "changed" || data.status === "draft";
   const base = `/api/cms/collections/${key}/${id}`;

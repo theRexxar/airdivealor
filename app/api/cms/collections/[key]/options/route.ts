@@ -1,4 +1,4 @@
-import { collectionDef } from "@/lib/cms/registry";
+import { collectionDef, itemTitle } from "@/lib/cms/registry";
 import { listItems } from "@/lib/server/collection-service";
 import { handle, HttpError, ok, requireUser } from "@/lib/server/http";
 
@@ -13,7 +13,7 @@ export const GET = handle(async (_req, ctx: { params: Promise<{ key: string }> }
     options: rows.map((r) => {
       const d = r.draft as Record<string, unknown>;
       const live = !!r.published && r.enabled;
-      return { value: r.slug, label: `${String(d[def.titleField] ?? r.slug)}${live ? "" : r.published ? " (hidden)" : " (not published)"}` };
+      return { value: r.slug, label: `${itemTitle(def, d) || r.slug}${live ? "" : r.published ? " (hidden)" : " (not published)"}` };
     }),
   });
 });

@@ -1,3 +1,4 @@
+import { itemTitle } from "@/lib/cms/registry";
 import { inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { audit } from "@/lib/server/audit";
@@ -33,7 +34,7 @@ export const GET = handle(async (_req, ctx: Ctx) => {
       return {
         id: r.id,
         slug: r.slug,
-        title: String(d[def.titleField] ?? r.slug),
+        title: itemTitle(def, d) || r.slug,
         thumb: thumb || null,
         status: itemStatus(r),
         enabled: r.enabled,
