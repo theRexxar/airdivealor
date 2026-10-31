@@ -86,7 +86,7 @@ export default function CollectionPage() {
         sub={def.description}
         actions={
           <>
-            <ButtonLink href="/dive-sites" external variant="secondary" icon="external-link">
+            <ButtonLink href={def.listHref} external variant="secondary" icon="external-link">
               Live page
             </ButtonLink>
             {perm.edit && (

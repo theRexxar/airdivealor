@@ -1,4 +1,7 @@
 /** Check that the built-in default content passes the CMS validation (npm run cms:check). */
+import { COURSE_SCHEMA } from "../lib/cms/course-fields";
+import { COURSES_DEFAULTS, COURSES_PAGE_DEFAULTS } from "../lib/cms/courses-defaults";
+import { COURSES_SCHEMAS } from "../lib/cms/courses-sections";
 import { DIVE_SITES_DEFAULTS, SITES_DEFAULTS } from "../lib/cms/dive-sites-defaults";
 import { DIVE_SITES_SCHEMAS } from "../lib/cms/dive-sites-sections";
 import { FACILITIES_DEFAULTS } from "../lib/cms/facilities-defaults";
@@ -18,6 +21,8 @@ const check = (label: string, schema: { safeParse: (v: unknown) => { success: bo
 for (const [k, s] of Object.entries(HOME_SCHEMAS)) check(`home.${k}`, s, (HOME_DEFAULTS as unknown as Record<string, unknown>)[k]);
 for (const [k, s] of Object.entries(DIVE_SITES_SCHEMAS)) check(`dive-sites.${k}`, s, (DIVE_SITES_DEFAULTS as unknown as Record<string, unknown>)[k]);
 for (const [k, s] of Object.entries(FACILITIES_SCHEMAS)) check(`facilities.${k}`, s, (FACILITIES_DEFAULTS as unknown as Record<string, unknown>)[k]);
+for (const [k, s] of Object.entries(COURSES_SCHEMAS)) check(`dive-courses.${k}`, s, (COURSES_PAGE_DEFAULTS as unknown as Record<string, unknown>)[k]);
+COURSES_DEFAULTS.forEach((x) => check(`course ${x.slug}`, COURSE_SCHEMA, x));
 SITES_DEFAULTS.forEach((x) => check(`site ${x.slug}`, SITE_SCHEMA, x));
 console.log(ok ? "all defaults valid" : "invalid defaults");
 process.exit(ok ? 0 : 1);

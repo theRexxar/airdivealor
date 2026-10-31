@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
+import { getCourses } from "@/lib/cms/fetch";
+import { seoMetadata } from "@/lib/cms/seo";
 import { CoursesView } from "./CoursesView";
 
-const description = "SDI and TDI dive courses in Alor, from Open Water to Divemaster and technical diving. Every package includes your stay, three meals a day, gear and airport transfers.";
+/** Rendered per request from the cached CMS API response (see lib/cms/fetch.ts). */
+export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Dive courses | Air Dive Alor",
-  description,
-  openGraph: { title: "Dive courses | Air Dive Alor", description, type: "website" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const data = await getCourses();
+  return seoMetadata(data.content.seo, data.media, "/dive-courses");
+}
 
-export default function CoursesPage() {
-  return <CoursesView />;
+export default async function CoursesPage() {
+  return <CoursesView data={await getCourses()} />;
 }

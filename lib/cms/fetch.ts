@@ -1,4 +1,6 @@
 import { headers } from "next/headers";
+import { COURSES_DEFAULTS, COURSES_PAGE_DEFAULTS } from "./courses-defaults";
+import type { PublishedCourse, PublishedCourses } from "./courses-types";
 import { DIVE_SITES_DEFAULTS, SITES_DEFAULTS } from "./dive-sites-defaults";
 import type { PublishedDiveSites, PublishedSite } from "./dive-sites-types";
 import { FACILITIES_DEFAULTS } from "./facilities-defaults";
@@ -91,5 +93,37 @@ export async function getSite(slug: string): Promise<PublishedSite | null> {
     const prev = SITES_DEFAULTS[(i + n - 1) % n];
     const next = SITES_DEFAULTS[(i + 1) % n];
     return { site: SITES_DEFAULTS[i], index: i, total: n, prev: { slug: prev.slug, name: prev.name }, next: { slug: next.slug, name: next.name }, guide: DIVE_SITES_DEFAULTS.guide, media: {} };
+  }
+}
+
+export const FALLBACK_COURSES: PublishedCourses = {
+  content: COURSES_PAGE_DEFAULTS,
+  order: ["hero", "list", "cta"],
+  courses: COURSES_DEFAULTS,
+  media: {},
+  publishedAt: null,
+};
+
+export async function getCourses(): Promise<PublishedCourses> {
+  try {
+    return (await cmsGet<PublishedCourses>("/api/public/pages/dive-courses", [pageTag("dive-courses"), collectionTag("courses")])) ?? FALLBACK_COURSES;
+  } catch (e) {
+    warn("dive courses", e);
+    return FALLBACK_COURSES;
+  }
+}
+
+/** One course page, or null when the course isn't published (the page then shows 404). */
+export async function getCourse(slug: string): Promise<PublishedCourse | null> {
+  try {
+    return await cmsGet<PublishedCourse>(`/api/public/courses/${encodeURIComponent(slug)}`, [pageTag("dive-courses"), collectionTag("courses")]);
+  } catch (e) {
+    warn(`course ${slug}`, e);
+    const i = COURSES_DEFAULTS.findIndex((c) => c.slug === slug);
+    if (i < 0) return null;
+    const n = COURSES_DEFAULTS.length;
+    const prev = COURSES_DEFAULTS[(i + n - 1) % n];
+    const next = COURSES_DEFAULTS[(i + 1) % n];
+    return { course: COURSES_DEFAULTS[i], index: i, total: n, prev: { slug: prev.slug, name: prev.name }, next: { slug: next.slug, name: next.name }, detail: COURSES_PAGE_DEFAULTS.detail, media: {} };
   }
 }
