@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from "react";
 import type { PublishedAbout } from "@/lib/cms/about-types";
+import type { PublishedBlog, PublishedPost } from "@/lib/cms/blog-cms-types";
 import type { PublishedCourse, PublishedCourses } from "@/lib/cms/courses-types";
 import type { PublishedDiveSites, PublishedSite } from "@/lib/cms/dive-sites-types";
 import type { PublishedFacilities } from "@/lib/cms/facilities-types";
 import type { PublishedHome } from "@/lib/cms/home-types";
 import { HomeView } from "../../_home/HomeView";
 import { AboutView } from "../../about-us/AboutView";
+import { PostView } from "../../blog/[slug]/PostView";
+import { BlogIndex } from "../../blog/BlogIndex";
 import { CourseDetailView } from "../../dive-courses/[id]/CourseDetailView";
 import { CoursesView } from "../../dive-courses/CoursesView";
 import { SiteGuideView } from "../../dive-sites/[slug]/SiteGuideView";
@@ -32,10 +35,12 @@ export function PreviewClient({ kind, collection, slug, anchors, back }: { kind:
 
   let view = null;
   if (data && kind === "item" && collection === "sites") view = <SiteGuideView data={data as PublishedSite} />;
+  else if (data && kind === "item" && collection === "posts") view = <PostView data={data as PublishedPost} />;
   else if (data && kind === "item" && collection === "courses") view = <CourseDetailView data={data as PublishedCourse} />;
   else if (data && kind === "page" && slug === "home") view = <HomeView data={data as PublishedHome} />;
   else if (data && kind === "page" && slug === "dive-sites") view = <SitesView data={data as PublishedDiveSites} />;
   else if (data && kind === "page" && slug === "dive-courses") view = <CoursesView data={data as PublishedCourses} />;
+  else if (data && kind === "page" && slug === "blog") view = <BlogIndex data={data as PublishedBlog} />;
   else if (data && kind === "page" && slug === "about-us") view = <AboutView data={data as PublishedAbout} />;
   else if (data && kind === "page" && slug === "facilities") view = <FacilitiesView data={data as PublishedFacilities} />;
 

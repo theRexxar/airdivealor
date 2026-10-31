@@ -6,29 +6,30 @@ import { PostCard } from "@/components/PostCard";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button, ButtonLink, Dot, Icon } from "@/components/ui";
-import { CATS, POSTS, bodyOf, dateLabel, postHref, readTime, type Block, type Post } from "@/lib/blog";
-import { useLang } from "@/lib/i18n";
+import { dateLabel, postHref, readTimeLabel } from "@/lib/blog";
+import type { BodyBlock, PostCardData, PublishedPost } from "@/lib/cms/blog-cms-types";
+import { useContent, type ContentHelpers } from "@/lib/cms/use-content";
 import { ROUTES, waLink } from "@/lib/site";
 
-export function PostView({ slug }: { slug: string }) {
-  const { t, pick, lang } = useLang();
+/** One blog story, rendered from the CMS (published, or the draft in the CMS preview). */
+export function PostView({ data }: { data: PublishedPost }) {
+  const h = useContent(data.media);
+  const { L, img, t, lang } = h;
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
 
-  const i = POSTS.findIndex((p) => p.slug === slug);
-  const p = POSTS[i];
-  const newer = POSTS[i - 1];
-  const older = POSTS[i + 1];
-  const others = POSTS.filter((x) => x !== p);
-  const more = others.filter((x) => x.cat === p.cat).concat(others.filter((x) => x.cat !== p.cat)).slice(0, 3);
-  const title = pick(p.title, p.titleId);
+  const p = data.post;
+  const x = data.texts;
+  const title = L(p.title);
+  const cat = data.categories.find((c) => c.slug === p.category);
+  const cover = img(p.cover, "(min-width: 1100px) 1040px, 100vw");
 
   useEffect(() => {
     document.title = `${title} | Air Dive Alor`;
   }, [title]);
 
-  const shareWA = () => window.open("https://api.whatsapp.com/send/?text=" + encodeURIComponent(p.title + " " + window.location.href), "_blank", "noopener");
+  const shareWA = () => window.open("https://api.whatsapp.com/send/?text=" + encodeURIComponent(p.title.en + " " + window.location.href), "_blank", "noopener");
   const copyLink = () => {
     navigator.clipboard?.writeText(window.location.href).catch(() => {});
     setCopied(true);
@@ -36,6 +37,7 @@ export function PostView({ slug }: { slug: string }) {
     timer.current = setTimeout(() => setCopied(false), 2000);
   };
   const copyLabel = t(copied ? "Link copied" : "Copy link");
+  const cta = (x.ctaMessage || 'Hi Air Dive Alor, I read "{title}" and would like to plan a dive trip.').replace(/\{title\}/g, p.title.en);
 
   return (
     <div className="page">
@@ -46,20 +48,20 @@ export function PostView({ slug }: { slug: string }) {
           <div className="post-head__inner">
             <nav aria-label={t("Breadcrumb")} className="breadcrumb">
               <Link href={ROUTES.blog}>Blog</Link>
-              <Icon name="chevron-right" size={14} style={{ color: "var(--neutral-500)" }} />
-              <span>{pick(...CATS[p.cat])}</span>
+              {cat && <Icon name="chevron-right" size={14} style={{ color: "var(--neutral-500)" }} />}
+              {cat && <span>{L(cat.name)}</span>}
             </nav>
             <h1 className="post-head__title">{title}</h1>
-            <p className="post-head__excerpt">{pick(p.excerpt, p.excerptId)}</p>
+            <p className="post-head__excerpt">{L(p.excerpt)}</p>
             <div className="post-head__byline">
               <div className="byline">
-                <span aria-hidden="true" className="byline__avatar">{p.author[2]}</span>
+                <span aria-hidden="true" className="byline__avatar">{p.initials}</span>
                 <span className="byline__text">
-                  <span className="byline__name">{pick(p.author[0], p.author[1])}</span>
+                  <span className="byline__name">{L(p.author)}</span>
                   <span className="byline__meta">
                     <span>{dateLabel(p.date, lang)}</span>
                     <Dot />
-                    <span>{readTime(p, lang)}</span>
+                    <span>{readTimeLabel(data.minutes, lang)}</span>
                   </span>
                 </span>
               </div>
@@ -71,17 +73,32 @@ export function PostView({ slug }: { slug: string }) {
           </div>
         </section>
 
-        <div className="post-cover">
-          <div className="post-cover__frame">
-            <img src={p.cover} alt={title} fetchPriority="high" />
+        {cover && (
+          <div className="post-cover">
+            <div className="post-cover__frame">
+              <img src={cover.src} srcSet={cover.srcSet} sizes={cover.sizes} alt={title} fetchPriority="high" />
+            </div>
           </div>
-        </div>
+        )}
 
         <section className="post-body">
           <div className="post-body__inner">
-            {bodyOf(p).map((b, k) => (
-              <BodyBlock key={k} block={b} post={p} />
-            ))}
+            {p.body.length > 0 ? (
+              p.body.map((b, k) => <Block key={k} block={b} h={h} fallbackAlt={title} />)
+            ) : (
+              <>
+                <p className="prose-p">{L(p.excerpt)}</p>
+                {p.source && (
+                  <div className="prose-source">
+                    <span>{L(x.sourceNote)}</span>
+                    <a href={p.source} target="_blank" rel="noopener noreferrer">
+                      <span>{L(x.sourceLink)}</span>
+                      <Icon name="external-link" size={16} />
+                    </a>
+                  </div>
+                )}
+              </>
+            )}
 
             <div className="share-row">
               <span className="share-row__title">{t("Share this story")}</span>
@@ -92,73 +109,81 @@ export function PostView({ slug }: { slug: string }) {
             </div>
 
             <div className="adjacent">
-              {newer && <AdjacentLink post={newer} dir="newer" />}
-              {older && <AdjacentLink post={older} dir="older" />}
+              {data.newer && <AdjacentLink post={data.newer} dir="newer" h={h} />}
+              {data.older && <AdjacentLink post={data.older} dir="older" h={h} />}
             </div>
 
-            <div data-theme="dark" className="post-cta">
-              <span className="post-cta__title">{t("Want to see it for yourself?")}</span>
-              <p>{t("Tell us your dates. We will plan the dives and the stay.")}</p>
-              <ButtonLink href={waLink(`Hi Air Dive Alor, I read "${p.title}" and would like to plan a dive trip.`)} external variant="primary" size="large" icon="message-circle">
-                {t("Plan your dive")}
-              </ButtonLink>
-            </div>
+            {L(x.ctaTitle) && (
+              <div data-theme="dark" className="post-cta">
+                <span className="post-cta__title">{L(x.ctaTitle)}</span>
+                {L(x.ctaText) && <p>{L(x.ctaText)}</p>}
+                {L(x.ctaLabel) && (
+                  <ButtonLink href={waLink(cta)} external variant="primary" size="large" icon="message-circle">
+                    {L(x.ctaLabel)}
+                  </ButtonLink>
+                )}
+              </div>
+            )}
           </div>
         </section>
       </article>
 
-      <section className="section more-stories">
-        <div className="more-stories__head">
-          <h2 className="h2">{t("More stories")}</h2>
-          <ButtonLink href={ROUTES.blog} variant="secondary" size="large" icon="arrow-right" iconPosition="suffix">
-            {t("See all stories")}
-          </ButtonLink>
-        </div>
-        <div className="card-grid">
-          {more.map((x) => (
-            <PostCard key={x.slug} post={x} />
-          ))}
-        </div>
-      </section>
+      {data.more.length > 0 && (
+        <section className="section more-stories">
+          <div className="more-stories__head">
+            <h2 className="h2">{L(x.moreTitle)}</h2>
+            {L(x.moreLabel) && (
+              <ButtonLink href={ROUTES.blog} variant="secondary" size="large" icon="arrow-right" iconPosition="suffix">
+                {L(x.moreLabel)}
+              </ButtonLink>
+            )}
+          </div>
+          <div className="card-grid">
+            {data.more.map((m) => (
+              <PostCard key={m.slug} post={m} h={h} categories={data.categories} label={t("Read story")} />
+            ))}
+          </div>
+        </section>
+      )}
 
       <SiteFooter />
     </div>
   );
 }
 
-function AdjacentLink({ post, dir }: { post: Post; dir: "newer" | "older" }) {
-  const { t, pick } = useLang();
+function AdjacentLink({ post, dir, h }: { post: PostCardData; dir: "newer" | "older"; h: ContentHelpers }) {
+  const { L, img, t } = h;
+  const thumb = img(post.cover, "160px");
   return (
     <Link href={postHref(post.slug)} className="adjacent__link">
-      <span className="adjacent__thumb">
-        <img src={post.cover} alt="" loading="lazy" />
-      </span>
+      <span className="adjacent__thumb">{thumb && <img src={thumb.src} srcSet={thumb.srcSet} sizes={thumb.sizes} alt="" loading="lazy" />}</span>
       <span className="adjacent__text">
         <span className="adjacent__label">
           {dir === "newer" && <Icon name="arrow-left" size={14} />}
           <span>{t(dir === "newer" ? "Newer story" : "Older story")}</span>
           {dir === "older" && <Icon name="arrow-right" size={14} />}
         </span>
-        <span className="adjacent__title">{pick(post.title, post.titleId)}</span>
+        <span className="adjacent__title">{L(post.title)}</span>
       </span>
     </Link>
   );
 }
 
-function BodyBlock({ block: b, post }: { block: Block; post: Post }) {
-  const { t, pick } = useLang();
-  const fallbackAlt = pick(post.title, post.titleId);
-  switch (b.t) {
+function Block({ block: b, h, fallbackAlt }: { block: BodyBlock; h: ContentHelpers; fallbackAlt: string }) {
+  const { L, img } = h;
+  switch (b.type) {
     case "p":
-      return <p className="prose-p">{pick(b.en, b.id)}</p>;
+      return <p className="prose-p">{L(b.text)}</p>;
     case "h":
-      return <h2 className="prose-h">{pick(b.en, b.id)}</h2>;
+      return <h2 className="prose-h">{L(b.text)}</h2>;
     case "img": {
-      const cap = b.en ? pick(b.en, b.id) : "";
+      const cap = L(b.caption);
+      const im = img(b.photo, "(min-width: 760px) 720px, 100vw");
+      if (!im) return null;
       return (
         <figure className="prose-figure">
           <span className="prose-figure__frame">
-            <img src={b.src} alt={cap || fallbackAlt} loading="lazy" />
+            <img src={im.src} srcSet={im.srcSet} sizes={im.sizes} alt={cap || im.alt || fallbackAlt} loading="lazy" />
           </span>
           {cap && <figcaption>{cap}</figcaption>}
         </figure>
@@ -167,12 +192,14 @@ function BodyBlock({ block: b, post }: { block: Block; post: Post }) {
     case "gallery":
       return (
         <div className="prose-gallery">
-          {b.items.map((g) => {
-            const cap = g.en ? pick(g.en, g.id) : "";
+          {b.items.map((g, k) => {
+            const cap = L(g.caption);
+            const im = img(g.photo, "(min-width: 760px) 360px, 50vw");
+            if (!im) return null;
             return (
-              <figure key={g.src}>
+              <figure key={k}>
                 <span className="prose-gallery__frame">
-                  <img src={g.src} alt={cap || fallbackAlt} loading="lazy" />
+                  <img src={im.src} srcSet={im.srcSet} sizes={im.sizes} alt={cap || im.alt || fallbackAlt} loading="lazy" />
                 </span>
                 {cap && <figcaption>{cap}</figcaption>}
               </figure>
@@ -183,10 +210,10 @@ function BodyBlock({ block: b, post }: { block: Block; post: Post }) {
     case "list":
       return (
         <ul className="prose-list">
-          {b.items.map(([en, id]) => (
-            <li key={en}>
+          {b.items.map((it, k) => (
+            <li key={k}>
               <Icon name="circle-check" size={20} style={{ color: "var(--icon-primary)", flex: "none", marginTop: 2 }} />
-              <span>{pick(en, id)}</span>
+              <span>{L(it.text)}</span>
             </li>
           ))}
         </ul>
@@ -195,38 +222,28 @@ function BodyBlock({ block: b, post }: { block: Block; post: Post }) {
       return (
         <blockquote className="prose-quote">
           <Icon name="quote" size={28} style={{ color: "var(--icon-primary)" }} />
-          <p>{pick(b.en, b.id)}</p>
-          <span className="prose-quote__cite">{b.cite}</span>
+          <p>{L(b.text)}</p>
+          {b.cite && <span className="prose-quote__cite">{b.cite}</span>}
         </blockquote>
       );
     case "facts":
       return (
         <dl className="prose-facts">
-          {b.items.map(([le, li, ve, vi]) => (
-            <div key={le}>
-              <dt>{pick(le, li)}</dt>
-              <dd>{pick(ve, vi)}</dd>
+          {b.items.map((f, k) => (
+            <div key={k}>
+              <dt>{L(f.label)}</dt>
+              <dd>{L(f.value)}</dd>
             </div>
           ))}
         </dl>
       );
     case "link":
-      return (
+      return b.href ? (
         <div className="prose-link">
-          <ButtonLink href={b.href} variant="secondary" size="large" icon="arrow-right" iconPosition="suffix">
-            {pick(b.en, b.id)}
+          <ButtonLink href={b.href} external={/^https?:/.test(b.href)} variant="secondary" size="large" icon="arrow-right" iconPosition="suffix">
+            {L(b.label)}
           </ButtonLink>
         </div>
-      );
-    case "source":
-      return (
-        <div className="prose-source">
-          <span>{t("We are still moving this story from our old blog.")}</span>
-          <a href={b.href} target="_blank" rel="noopener noreferrer">
-            <span>{t("Read the full story on airdivealor.com")}</span>
-            <Icon name="external-link" size={16} />
-          </a>
-        </div>
-      );
+      ) : null;
   }
 }

@@ -173,7 +173,7 @@ export default function ItemEditorPage() {
         title={title}
         sub={isNew ? `Fill in the guide, then save a draft or publish it. New ${def.itemLabel}s go to the end of the list.` : undefined}
         actions={
-          !isNew && (
+          !isNew && !def.noItemPage && (
             <>
               <ButtonLink href={`/cms/preview/${key}/${data.id}`} external variant="secondary" icon="eye">
                 Preview
@@ -267,7 +267,7 @@ export default function ItemEditorPage() {
           )}
           <div className="cms-card">
             <div className="cms-card__body cms-muted">
-              The web address becomes the page link ({def.itemHref(String(value.slug || "web-address"))}). Text fields have English (EN) and Indonesian (ID) boxes.
+              {!def.noItemPage && <>The web address becomes the page link ({def.itemHref(String(value.slug || "web-address"))}). </>}Text fields have English (EN) and Indonesian (ID) boxes.
             </div>
           </div>
         </aside>

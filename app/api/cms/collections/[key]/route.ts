@@ -17,19 +17,21 @@ export const GET = handle(async (_req, ctx: Ctx) => {
   const def = requireCollection(key);
   const me = await requireUser(`${key}.view`);
   const rows = await listItems(key);
+  /** The first image field is the list thumbnail. */
+  const thumbKey = def.fields.find((f) => f.type === "media")?.key ?? "photo";
   const photoIds = new Set<number>();
   for (const r of rows) {
-    const id = ((r.draft as Record<string, unknown>).photo as MediaRef | undefined)?.mediaId;
+    const id = ((r.draft as Record<string, unknown>)[thumbKey] as MediaRef | undefined)?.mediaId;
     if (id) photoIds.add(id);
   }
   const media = await resolveMedia(photoIds);
   const userIds = [...new Set(rows.map((r) => r.draftUpdatedBy).filter((x): x is number => !!x))];
   const people = userIds.length ? await db.select({ id: schema.users.id, name: schema.users.name }).from(schema.users).where(inArray(schema.users.id, userIds)) : [];
   return ok({
-    collection: { key: def.key, label: def.label, itemLabel: def.itemLabel, description: def.description },
+    collection: { key: def.key, label: def.label, itemLabel: def.itemLabel, description: def.description, sorted: !!def.sortField },
     items: rows.map((r) => {
       const d = r.draft as Record<string, unknown>;
-      const photo = d.photo as MediaRef | undefined;
+      const photo = d[thumbKey] as MediaRef | undefined;
       const thumb = photo?.mediaId ? media[photo.mediaId]?.url : photo?.url;
       return {
         id: r.id,

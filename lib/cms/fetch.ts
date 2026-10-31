@@ -1,5 +1,7 @@
 import { headers } from "next/headers";
 import { ABOUT_DEFAULTS } from "./about-defaults";
+import { toCard, type PublishedBlog, type PublishedPost } from "./blog-cms-types";
+import { BLOG_DEFAULTS, CATEGORIES_DEFAULTS, POSTS_DEFAULTS } from "./blog-defaults";
 import type { PublishedAbout } from "./about-types";
 import { COURSES_DEFAULTS, COURSES_PAGE_DEFAULTS } from "./courses-defaults";
 import type { PublishedCourse, PublishedCourses } from "./courses-types";
@@ -138,5 +140,50 @@ export async function getAbout(): Promise<PublishedAbout> {
   } catch (e) {
     warn("about us", e);
     return FALLBACK_ABOUT;
+  }
+}
+
+const BLOG_TAGS = [pageTag("blog"), collectionTag("posts"), collectionTag("categories")];
+
+export const FALLBACK_BLOG: PublishedBlog = {
+  content: BLOG_DEFAULTS,
+  order: ["hero", "stories", "cta"],
+  posts: POSTS_DEFAULTS.map(toCard),
+  categories: CATEGORIES_DEFAULTS,
+  media: {},
+  publishedAt: null,
+};
+
+export async function getBlog(): Promise<PublishedBlog> {
+  try {
+    return (await cmsGet<PublishedBlog>("/api/public/pages/blog", BLOG_TAGS)) ?? FALLBACK_BLOG;
+  } catch (e) {
+    warn("blog", e);
+    return FALLBACK_BLOG;
+  }
+}
+
+/** One story, or null when it isn't published (the page then shows 404). */
+export async function getPost(slug: string): Promise<PublishedPost | null> {
+  try {
+    return await cmsGet<PublishedPost>(`/api/public/posts/${encodeURIComponent(slug)}`, BLOG_TAGS);
+  } catch (e) {
+    warn(`story ${slug}`, e);
+    const all = POSTS_DEFAULTS;
+    const i = all.findIndex((p) => p.slug === slug);
+    if (i < 0) return null;
+    const post = all[i];
+    const others = all.filter((x) => x !== post);
+    const more = others.filter((x) => x.category === post.category).concat(others.filter((x) => x.category !== post.category)).slice(0, 3).map(toCard);
+    return {
+      post,
+      minutes: toCard(post).minutes,
+      newer: i > 0 ? toCard(all[i - 1]) : null,
+      older: i < all.length - 1 ? toCard(all[i + 1]) : null,
+      more,
+      categories: CATEGORIES_DEFAULTS,
+      texts: BLOG_DEFAULTS.post,
+      media: {},
+    };
   }
 }

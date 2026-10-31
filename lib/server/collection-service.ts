@@ -1,7 +1,7 @@
 import { and, asc, eq, ne } from "drizzle-orm";
 import { collectMediaIds } from "@/lib/cms/fields";
-import { collectionDef } from "@/lib/cms/registry";
-import { schemaFor } from "@/lib/cms/fields";
+import { schemaFor, type Field } from "@/lib/cms/fields";
+import { collectionDef, COLLECTIONS, itemTitle, PAGES } from "@/lib/cms/registry";
 import { db, schema } from "./db";
 import { HttpError } from "./http";
 
@@ -29,9 +29,19 @@ export async function validateItem(key: string, content: unknown, selfId?: numbe
   return data;
 }
 
+/** Newest first by the collection's sort field (e.g. a story's date); ties keep their stored order. */
+function bySortField<T>(def: { sortField?: string }, rows: T[], value: (r: T) => Record<string, unknown> | null): T[] {
+  const f = def.sortField;
+  if (!f) return rows;
+  const v = (r: T) => String(value(r)?.[f] ?? "");
+  return rows.map((r, i) => ({ r, i })).sort((a, b) => v(b.r).localeCompare(v(a.r)) || a.i - b.i).map((x) => x.r);
+}
+
+/** All items of a collection, in website order: by hand (sort column), or newest first when it has a sort field. */
 export async function listItems(key: string) {
-  requireCollection(key);
-  return db.select().from(schema.collectionItems).where(eq(schema.collectionItems.collection, key)).orderBy(asc(schema.collectionItems.sort), asc(schema.collectionItems.id));
+  const def = requireCollection(key);
+  const rows = await db.select().from(schema.collectionItems).where(eq(schema.collectionItems.collection, key)).orderBy(asc(schema.collectionItems.sort), asc(schema.collectionItems.id));
+  return bySortField(def, rows, (r) => r.draft as Record<string, unknown>);
 }
 
 export async function getItem(key: string, id: number) {
@@ -52,8 +62,45 @@ export function itemStatus(r: ItemRow): "draft" | "live" | "changed" | "hidden" 
 export async function liveItems<T = Record<string, unknown>>(key: string, opts: { draft?: boolean } = {}) {
   const def = requireCollection(key);
   const rows = await listItems(key);
-  const items = rows.filter((r) => (opts.draft ? true : r.enabled && r.published)).map((r) => (opts.draft ? r.draft : r.published) as T);
+  const items = bySortField(
+    def,
+    rows.filter((r) => (opts.draft ? true : r.enabled && r.published)).map((r) => (opts.draft ? r.draft : r.published) as Record<string, unknown>),
+    (x) => x,
+  ) as T[];
   const mediaIds = new Set<number>();
   items.forEach((it) => collectMediaIds(def.fields, it, mediaIds));
   return { items, mediaIds };
+}
+
+/** True when a value (shaped by `fields`) has a picker pointing at `slug` in `collection`. */
+function refersTo(fields: Field[], value: unknown, collection: string, slug: string): boolean {
+  const v = (value ?? {}) as Record<string, unknown>;
+  return fields.some((f) => {
+    const x = v[f.key];
+    if (f.type === "ref") return f.collection === collection && x === slug;
+    if (f.type === "group") return refersTo(f.fields, x, collection, slug);
+    if (f.type === "list") return Array.isArray(x) && x.some((i) => refersTo(f.fields, i, collection, slug));
+    if (f.type === "blocks")
+      return Array.isArray(x) && x.some((i) => refersTo(f.kinds.find((k) => k.type === (i as { type?: string })?.type)?.fields ?? [], i, collection, slug));
+    return false;
+  });
+}
+
+/** Where an item is still picked (page sections and other items, draft or live), as readable labels. */
+export async function itemUsers(collection: string, slug: string): Promise<string[]> {
+  const users: string[] = [];
+  for (const p of PAGES) {
+    const rows = await db.select().from(schema.pageSections).innerJoin(schema.pages, eq(schema.pages.id, schema.pageSections.pageId)).where(eq(schema.pages.slug, p.slug));
+    for (const { page_sections: r } of rows) {
+      const def = p.sections.find((x) => x.key === r.key);
+      if (def && [r.draft, r.published].some((v) => refersTo(def.fields, v, collection, slug))) users.push(`${p.label} › ${def.label}`);
+    }
+  }
+  for (const c of COLLECTIONS) {
+    if (!c.fields.some((f) => f.type === "ref" && f.collection === collection)) continue;
+    for (const r of await db.select().from(schema.collectionItems).where(eq(schema.collectionItems.collection, c.key))) {
+      if ([r.draft, r.published].some((v) => refersTo(c.fields, v, collection, slug))) users.push(`${c.label} › ${itemTitle(c, r.draft as Record<string, unknown>) || r.slug}`);
+    }
+  }
+  return users;
 }
