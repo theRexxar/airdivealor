@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import type { PublishedDiveSites, PublishedSite } from "@/lib/cms/dive-sites-types";
+import type { PublishedFacilities } from "@/lib/cms/facilities-types";
 import type { PublishedHome } from "@/lib/cms/home-types";
 import { HomeView } from "../../_home/HomeView";
 import { SiteGuideView } from "../../dive-sites/[slug]/SiteGuideView";
 import { SitesView } from "../../dive-sites/SitesView";
+import { FacilitiesView } from "../../facilities-and-rates/FacilitiesView";
 
 /** Loads draft content from the CMS API and renders it with the website's own components, under a preview banner. */
 export function PreviewClient({ kind, slug, anchors, back }: { kind: "page" | "site"; slug: string; anchors: Record<string, string>; back: string }) {
@@ -27,6 +29,7 @@ export function PreviewClient({ kind, slug, anchors, back }: { kind: "page" | "s
   if (data && kind === "site") view = <SiteGuideView data={data as PublishedSite} />;
   else if (data && slug === "home") view = <HomeView data={data as PublishedHome} />;
   else if (data && slug === "dive-sites") view = <SitesView data={data as PublishedDiveSites} />;
+  else if (data && slug === "facilities") view = <FacilitiesView data={data as PublishedFacilities} />;
 
   return (
     <>

@@ -1,6 +1,8 @@
 import { headers } from "next/headers";
 import { DIVE_SITES_DEFAULTS, SITES_DEFAULTS } from "./dive-sites-defaults";
 import type { PublishedDiveSites, PublishedSite } from "./dive-sites-types";
+import { FACILITIES_DEFAULTS } from "./facilities-defaults";
+import type { PublishedFacilities } from "./facilities-types";
 import { HOME_DEFAULTS } from "./home-defaults";
 import type { PublishedHome } from "./home-types";
 import { collectionTag, pageTag } from "./tags";
@@ -42,6 +44,22 @@ export const FALLBACK_DIVE_SITES: PublishedDiveSites = {
   media: {},
   publishedAt: null,
 };
+
+export const FALLBACK_FACILITIES: PublishedFacilities = {
+  content: FACILITIES_DEFAULTS,
+  order: ["hero", "glance", "stay", "diving", "boats", "gear", "rates", "cta"],
+  media: {},
+  publishedAt: null,
+};
+
+export async function getFacilities(): Promise<PublishedFacilities> {
+  try {
+    return (await cmsGet<PublishedFacilities>("/api/public/pages/facilities", [pageTag("facilities")])) ?? FALLBACK_FACILITIES;
+  } catch (e) {
+    warn("facilities", e);
+    return FALLBACK_FACILITIES;
+  }
+}
 
 export async function getHome(): Promise<PublishedHome> {
   try {

@@ -13,6 +13,7 @@ const NAV: { group: string; items: { href: string; label: string; icon: IconName
     items: [
       { href: "/cms/pages/home", label: "Home", icon: "house", perm: "home.view" },
       { href: "/cms/pages/dive-sites", label: "Dive sites", icon: "waves", perm: "dive-sites.view" },
+      { href: "/cms/pages/facilities", label: "Facilities and rates", icon: "bed-double", perm: "facilities.view" },
     ],
   },
   { group: "Content", items: [{ href: "/cms/collections/sites", label: "Dive site guides", icon: "map-pin", perm: "sites.view" }] },

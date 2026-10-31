@@ -1,4 +1,5 @@
 import type { PublishedDiveSites, PublishedSite, SiteContent } from "@/lib/cms/dive-sites-types";
+import type { PublishedFacilities } from "@/lib/cms/facilities-types";
 import type { HomeContent, PublishedHome } from "@/lib/cms/home-types";
 import { liveItems } from "./collection-service";
 import { HttpError } from "./http";
@@ -35,9 +36,16 @@ async function diveSitesPayload(opts: Opts): Promise<PublishedDiveSites> {
   };
 }
 
+/** A page that is only its own sections (no collection items). */
+async function plainPayload(slug: string, opts: Opts) {
+  const page = await pageContent(slug, opts);
+  return { content: page.content, order: page.order, media: await resolveMedia(new Set(page.mediaIds)), publishedAt: page.publishedAt };
+}
+
 export async function publicPagePayload(slug: string, opts: Opts = {}) {
   if (slug === "home") return homePayload(opts);
   if (slug === "dive-sites") return diveSitesPayload(opts);
+  if (slug === "facilities") return (await plainPayload(slug, opts)) as unknown as PublishedFacilities;
   throw new HttpError(404, "Unknown page.");
 }
 
