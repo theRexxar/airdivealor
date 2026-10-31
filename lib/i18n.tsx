@@ -97,6 +97,7 @@ const EXTRA: Record<string, string> = {
   "4.9 on Google": "4,9 di Google",
   "From 180+ reviews": "Dari 180+ ulasan",
   "2,000+ divers": "2.000+ penyelam",
+  Deposit: "Uang muka",
 };
 
 const ID: Record<string, string> = { ...EXACT, ...SITES_ID, ...SITES_PAGE_ID, ...FACILITIES_ID, ...EXTRA };
