@@ -1,0 +1,36 @@
+# Local services for the CMS: MySQL (content, users), Redis (upload job queue), MinIO (media storage).
+# Start with: docker compose up -d
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-airdivealor}
+      MYSQL_USER: ${MYSQL_USER:-airdive}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-airdive}
+    ports: ["3306:3306"]
+    volumes: [mysql-data:/var/lib/mysql]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
+      interval: 5s
+      retries: 20
+
+  redis:
+    image: redis:7
+    ports: ["6379:6379"]
+    volumes: [redis-data:/data]
+
+  minio:
+    # Any MinIO image works; chainguard/minio is used because docker.io/minio/minio is no longer published.
+    image: ${MINIO_IMAGE:-chainguard/minio:latest}
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-minioadmin}
+    ports: ["9000:9000", "9001:9001"]
+    volumes: [minio-data:/data]
+
+volumes:
+  mysql-data:
+  redis-data:
+  minio-data:

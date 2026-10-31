@@ -3,23 +3,19 @@
 import { useEffect, useState, type RefObject } from "react";
 import { useLang } from "@/lib/i18n";
 
-/** [depth in m, section id (null = top), label, description] */
-const STOPS: [number, string | null, string, string][] = [
-  [0, null, "Surface", "Dive. Explore. Be surprised."],
-  [5, "b-prices", "Prices", "Packages and what each one includes."],
-  [10, "b-why", "Why Alor", "Four kinds of diving, one island."],
-  [15, "b-sites", "Dive sites", "Eight sites, each with a site guide."],
-  [18, "b-stay", "Stay and Kanaloa", "Rooms, dive shop and the boat."],
-  [21, "b-reviews", "Reviews", "What divers say on Google and TripAdvisor."],
-  [27, "b-faq", "FAQ", "Answers before you ask."],
-  [30, "b-book", "Book", "Book your dive in three steps."],
-];
+export interface GaugeStop {
+  depth: number;
+  /** Section element id; null scrolls to the top. */
+  id: string | null;
+  label: string;
+  info: string;
+}
 
 /**
  * Sticky depth gauge on the right edge (wide screens only): fills from 0 to 30 m as the page scrolls.
  * Each dot jumps to its section and shows a tooltip on hover or focus.
  */
-export function DepthGauge({ rootRef }: { rootRef: RefObject<HTMLDivElement | null> }) {
+export function DepthGauge({ rootRef, stops }: { rootRef: RefObject<HTMLDivElement | null>; stops: GaugeStop[] }) {
   const { t } = useLang();
   const [depth, setDepth] = useState(0);
   const [tip, setTip] = useState<number | null>(null);
@@ -42,14 +38,14 @@ export function DepthGauge({ rootRef }: { rootRef: RefObject<HTMLDivElement | nu
   }, [rootRef]);
 
   let cur = 0;
-  STOPS.forEach((s, i) => {
-    if (s[0] <= depth) cur = i;
+  stops.forEach((s, i) => {
+    if (s.depth <= depth) cur = i;
   });
   const go = (id: string | null) => {
     const el = id ? document.getElementById(id) : rootRef.current;
     if (el) window.scrollTo({ top: window.scrollY + el.getBoundingClientRect().top - (id ? 64 : 0), behavior: "smooth" });
   };
-  const tipStop = tip != null ? STOPS[tip] : null;
+  const tipStop = tip != null ? stops[tip] : null;
 
   return (
     <div className="gauge">
@@ -57,7 +53,7 @@ export function DepthGauge({ rootRef }: { rootRef: RefObject<HTMLDivElement | nu
         <div className="gauge__end">0 m</div>
         <div className="gauge__track">
           <div className="gauge__fill" style={{ height: `${Math.round((depth / 30) * 100)}%` }} />
-          {STOPS.map(([d, id, label], i) => {
+          {stops.map(({ depth: d, id, label }, i) => {
             const on = i === cur;
             const hov = i === tip;
             return (
@@ -87,10 +83,10 @@ export function DepthGauge({ rootRef }: { rootRef: RefObject<HTMLDivElement | nu
             );
           })}
           {tipStop && (
-            <div role="tooltip" className="gauge__tip" style={{ top: `${(tipStop[0] / 30) * 100}%` }}>
-              <span className="gauge__tip-depth">{tipStop[0]} m</span>
-              <span className="gauge__tip-label">{t(tipStop[2])}</span>
-              <span className="gauge__tip-info">{t(tipStop[3])}</span>
+            <div role="tooltip" className="gauge__tip" style={{ top: `${(tipStop.depth / 30) * 100}%` }}>
+              <span className="gauge__tip-depth">{tipStop.depth} m</span>
+              <span className="gauge__tip-label">{t(tipStop.label)}</span>
+              {tipStop.info && <span className="gauge__tip-info">{tipStop.info}</span>}
             </div>
           )}
         </div>
