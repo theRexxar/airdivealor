@@ -38,9 +38,9 @@ These come from the prototypes and need confirming: home prices and package deta
 
 ---
 
-# CMS (Home and Dive sites)
+# CMS (Home, Dive sites, Facilities and rates)
 
-The Home and Dive sites pages, and every dive site guide, are managed in a CMS that lives in this app at `/cms`. It uses MySQL for content and users, MinIO for photos and videos, Redis with BullMQ for background media processing, and Brevo for emails.
+The Home, Dive sites and Facilities and rates pages, and every dive site guide, are managed in a CMS that lives in this app at `/cms`. It uses MySQL for content and users, MinIO for photos and videos, Redis with BullMQ for background media processing, and Brevo for emails.
 
 ## Run it locally
 
@@ -61,19 +61,20 @@ In production, run `npm run build && npm start` for the app and `npm run worker`
 | Piece | Where |
 | --- | --- |
 | Page and collection registry (drives the API, CMS menus and permissions) | `lib/cms/registry.ts` |
-| Section and item definitions: fields, validation, editor form | `lib/cms/home-sections.ts`, `lib/cms/dive-sites-sections.ts`, `lib/cms/site-fields.ts`, `lib/cms/fields.ts` |
+| Section and item definitions: fields, validation, editor form | `lib/cms/home-sections.ts`, `lib/cms/dive-sites-sections.ts`, `lib/cms/facilities-sections.ts`, `lib/cms/site-fields.ts`, `lib/cms/fields.ts` |
 | Database schema and migrations (Drizzle ORM) | `lib/server/db/schema.ts`, `drizzle/` |
 | Admin API (session cookie, permission-checked) | `app/api/cms/**` |
-| Public API the website reads | `GET /api/public/pages/{home,dive-sites}`, `GET /api/public/sites/{slug}` |
+| Public API the website reads | `GET /api/public/pages/{home,dive-sites,facilities}`, `GET /api/public/sites/{slug}` |
 | CMS screens | `app/cms/**`, `components/cms/**` |
 | Media worker (sharp, ffmpeg) | `scripts/worker.ts` |
 
 **Content workflow:** each page section has its own editor.
 - **Home:** SEO, Hero, Awards, Prices, Why Alor, Dive sites (picks guides from the collection), Safety stop, Reviews, FAQ, Book.
 - **Dive sites:** SEO, Site guide texts (shared labels and notes on every guide page), Hero, Highlights, Site list (title, page size, filter buttons, note), Call to action.
+- **Facilities and rates:** SEO, Hero, Rates at a glance, Stay, Diving, Boats, Gear and equipment, Diving rates, Call to action. In Diving rates, each package has a price table (days, nights, dives, price) or, when the table is empty, price cards (for pay per dive), plus its included and not-included lists. Tapping a table row opens WhatsApp with a message built from the row.
 - **Saving** stores a draft.
 - **Publishing** copies the draft to the live version and clears the page cache straight away.
-- **Preview drafts** (`/cms/preview/home`, `/cms/preview/dive-sites`) shows unpublished changes.
+- **Preview drafts** (`/cms/preview/home`, `/cms/preview/dive-sites`, `/cms/preview/facilities`) shows unpublished changes.
 - **Order and visibility:** sections can be reordered and hidden. These changes apply to the live page as soon as they're saved.
 - **Languages:** every text field has English and Indonesian. When the Indonesian is empty, visitors see the English.
 
@@ -85,7 +86,7 @@ In production, run `npm run build && npm start` for the app and `npm run worker`
 - **Delete** is refused while a page still uses the guide (for example the Home "Dive sites" section).
 - **Filters** on the Dive sites page match words against each guide's English dive types (e.g. `wall` or `muck, macro`).
 
-**Website connection:** `app/page.tsx`, `app/dive-sites/page.tsx` and `app/dive-sites/[slug]/page.tsx` fetch the public API. Responses are cached for 5 minutes and refreshed the moment someone publishes. If the CMS can't be reached, the pages fall back to the built-in content in `lib/cms/home-defaults.ts` and `lib/cms/dive-sites-defaults.ts`. Set `CMS_API_URL` if the API runs somewhere else.
+**Website connection:** `app/page.tsx`, `app/dive-sites/page.tsx`, `app/dive-sites/[slug]/page.tsx` and `app/facilities-and-rates/page.tsx` fetch the public API. Responses are cached for 5 minutes and refreshed the moment someone publishes. If the CMS can't be reached, the pages fall back to the built-in content in `lib/cms/home-defaults.ts`, `lib/cms/dive-sites-defaults.ts` and `lib/cms/facilities-defaults.ts`. Set `CMS_API_URL` if the API runs somewhere else.
 
 **Uploads (asynchronous):**
 1. The browser registers the file and gets a presigned URL.
@@ -101,7 +102,7 @@ Limits are 25 MB per image and 300 MB per video. Browsers upload directly, so th
 - **Users** are invited by email and set their own password from the invitation link (valid 7 days).
 - **Forgot password** emails a one-time link valid for 1 hour, sent through Brevo. Without `BREVO_API_KEY`, emails are printed to the server log instead.
 - **Roles** are sets of permissions, and a user gets every permission from all their roles. Permissions:
-  - per page (Home, Dive sites): view, one edit permission per section, publish, change layout
+  - per page (Home, Dive sites, Facilities and rates): view, one edit permission per section, publish, change layout
   - per collection (Dive site guides): view, add/edit drafts, publish/hide/unpublish/reorder, delete
   - Media: view, upload, delete
   - Users: view, manage

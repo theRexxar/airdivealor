@@ -4,6 +4,7 @@
  */
 import type { Field } from "./fields";
 import { DIVE_SITES_SECTIONS } from "./dive-sites-sections";
+import { FACILITIES_SECTIONS } from "./facilities-sections";
 import { HOME_SECTIONS } from "./home-sections";
 import type { SectionDef } from "./sections";
 import { SITE_FIELDS } from "./site-fields";
@@ -39,6 +40,7 @@ export const PAGES: PageDef[] = [
     anchors: { prices: "b-prices", why: "b-why", sites: "b-sites", stay: "b-stay", reviews: "b-reviews", faq: "b-faq", book: "b-book" },
   },
   { slug: "dive-sites", label: "Dive sites", href: "/dive-sites", sections: DIVE_SITES_SECTIONS, anchors: { list: "sites" } },
+  { slug: "facilities", label: "Facilities and rates", href: "/facilities-and-rates", sections: FACILITIES_SECTIONS, anchors: { stay: "stay", diving: "diving", rates: "rates" } },
 ];
 
 export const COLLECTIONS: CollectionDef[] = [

@@ -1,386 +1,428 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
-import { Alert, Button, ButtonLink, Eyebrow, Icon, Tag, type IconName } from "@/components/ui";
-import { useLang } from "@/lib/i18n";
-import { ROUTES, waLink } from "@/lib/site";
+import { Alert, Button, ButtonLink, Eyebrow, Icon, Tag, asIcon } from "@/components/ui";
+import type { FacilitiesContent, GalleryPhoto, IconItem, PublishedFacilities } from "@/lib/cms/facilities-types";
+import { useContent, type ContentHelpers } from "@/lib/cms/use-content";
+import { waLink } from "@/lib/site";
 import "../about-us/about.css";
 import "./facilities.css";
 
+/** A gallery photo with texts already in the visitor's language. */
 interface Photo {
   src?: string;
+  srcSet?: string;
   label: string;
   title: string;
 }
 
-const STAY_PHOTOS: Photo[] = [
-  { label: "Rooms", title: "Four deluxe rooms" },
-  { src: "/latest/b-stay-shop.webp", label: "Porch", title: "Our porch in Alor Kecil" },
-  { src: "/latest/b-stay-meals.webp", label: "Meals", title: "Three home-cooked meals a day" },
-  { src: "/latest/b-stay-airport.webp", label: "Airport", title: "Pick-up at Mali Airport" },
-];
-const DIVE_PHOTOS: Photo[] = [
-  { src: "/latest/b-boat-drinks.webp", label: "Briefing", title: "Dive briefing on the boat" },
-  { src: "https://airdivealor.com/files/large/220/1200/780", label: "Dive shop", title: "Gear room at the dive shop" },
-  { src: "https://airdivealor.com/files/large/209/1200/780", label: "Kanaloa", title: "Surface interval on Kanaloa" },
-  { src: "https://airdivealor.com/files/large/210/1200/780", label: "Lunch", title: "Lunch cooked on board" },
-  { src: "https://airdivealor.com/files/large/268/500/350", label: "Camera table", title: "Camera table and rinse tank" },
-];
+/** Sections that share the shaded "diving" band when they follow each other. */
+const DIVING_BAND = new Set(["diving", "boats", "gear"]);
 
-const ROOM: [IconName, string][] = [
-  ["bed-double", "Two rooms with a queen bed"],
-  ["bed-single", "Two rooms with twin beds"],
-  ["shower-head", "Private bathroom with hot shower"],
-  ["snowflake", "Air conditioning"],
-  ["vault", "Safe deposit box"],
-  ["laptop", "Desk and work space"],
-  ["coffee", "Kettle, tea, coffee and drinking water"],
-  ["tree-palm", "Hammock on the porch"],
-  ["utensils", "Breakfast, lunch and dinner"],
-];
-const DIVE_DAY: [IconName, string][] = [
-  ["anchor", "Dive shop 3 minutes from the boat"],
-  ["gauge", "Tanks filled and checked every morning"],
-  ["droplets", "Gear rinsed and dried for you"],
-  ["megaphone", "A briefing before every dive"],
-  ["clock", "At least 60 minutes between dives"],
-  ["coffee", "Hot tea and coffee on board"],
-  ["utensils", "Lunch cooked on board"],
-];
-const WIX = "https://static.wixstatic.com/media/";
-const SAFETY = { icon: "shield-check" as IconName, label: "Safety", value: "Emergency oxygen, first aid kit, life jackets and life ring" };
-const BOATS = [
-  {
-    name: "Kanaloa",
-    img: `${WIX}47ffe6_097891455d4c48b989c063b7377c8ee0~mv2.jpg/v1/crop/x_1,y_104,w_1078,h_422/fill/w_1078,h_422,al_c,q_85/47ffe6_097891455d4c48b989c063b7377c8ee0~mv2.jpg`,
-    text: "Kanaloa is based on the Nusa Lembongan dive boat and was built by hand, from scratch, in Alor Kecil village. Safety is part of everything on board.",
-    specs: [{ icon: "users" as IconName, label: "Capacity", value: "8 divers and 3 divemasters" }, { icon: "gauge" as IconName, label: "Engines", value: "2 outboard engines" }, SAFETY],
-  },
-  {
-    name: "Inara",
-    img: `${WIX}47ffe6_e6bfd9cf0ef14ad1874ad244df7356bb~mv2.jpg/v1/crop/x_0,y_231,w_1440,h_579/fill/w_1440,h_579,al_c,q_85/47ffe6_e6bfd9cf0ef14ad1874ad244df7356bb~mv2.jpg`,
-    text: "Inara is our second dive boat. It is bigger and faster than Kanaloa, with the same safety equipment, so every group dives with the same standard.",
-    specs: [{ icon: "users" as IconName, label: "Capacity", value: "12 divers and 3 divemasters" }, { icon: "gauge" as IconName, label: "Engines", value: "2 outboard engines, faster than Kanaloa" }, SAFETY],
-  },
-];
-const GEAR: [IconName, string, string][] = [
-  ["backpack", "Dive gear", "BCD, regulator, wetsuit, mask and fins in many sizes. Included in every package."],
-  ["shield-check", "Safety gear", "Emergency oxygen, first aid kit, life jackets and a life ring on both boats."],
-  ["container", "Tanks", "Tanks are filled and checked every morning, before the boat leaves."],
-  ["fan", "Compressor", "Our own compressor at the dive shop, so every tank is filled on site."],
-  ["droplets", "Rinse and dry", "Fresh-water rinse tanks and a drying area. We rinse and dry your gear for you."],
-  ["camera", "Camera care", "A dry camera table, rinse tank and charging points on the boat."],
-];
-
-type Tab = "a" | "b" | "c";
-const PACKAGES: Record<Tab, { name: string; sub: string; rows: [number, number, string][] }> = {
-  a: { name: "Package A", sub: "2 dives a day", rows: [[5, 6, "9,800,000"], [6, 8, "12,700,000"], [7, 10, "15,600,000"], [8, 12, "18,500,000"], [9, 14, "21,400,000"], [10, 16, "24,300,000"], [11, 18, "27,200,000"], [12, 20, "30,000,000"]] },
-  b: { name: "Package B", sub: "3 dives a day", rows: [[5, 8, "11,825,000"], [6, 11, "15,725,000"], [7, 14, "19,625,000"], [8, 17, "23,525,000"], [9, 20, "27,425,000"], [10, 23, "31,325,000"], [11, 26, "35,225,000"], [12, 29, "39,125,000"]] },
-  c: { name: "À la carte", sub: "Pay per dive", rows: [] },
-};
-const AT_A_GLANCE: { tab: Tab; label: string; title: string; from: string; price: string; note: string }[] = [
-  { tab: "a", label: "Package A", title: "2 dives a day", from: "From", price: "IDR 9,800,000", note: "5 days, 6 dives" },
-  { tab: "b", label: "Package B", title: "3 dives a day", from: "From", price: "IDR 11,825,000", note: "5 days, 8 dives" },
-  { tab: "c", label: "À la carte", title: "Pay per dive", from: "Fun dive", price: "IDR 1,000,000", note: "per dive, 10% off from 10 dives" },
-];
-
-export function FacilitiesView() {
-  const { t, lang } = useLang();
-  const id = lang === "ID";
-  const [tab, setTab] = useState<Tab>("a");
+/** The Facilities and rates page, rendered from CMS content (published, or drafts in the CMS preview). */
+export function FacilitiesView({ data }: { data: PublishedFacilities }) {
+  const h = useContent(data.media);
+  const c = data.content;
+  const [tab, setTab] = useState(0);
   const [viewer, setViewer] = useState<{ photos: Photo[]; i: number } | null>(null);
-  const P = PACKAGES[tab];
-  const isPkg = tab !== "c";
 
-  const pick = (k: Tab) => {
-    setTab(k);
+  /** Open a rates tab and scroll to the table. */
+  const pick = (k: number) => {
+    setTab(Math.max(0, Math.min(k, c.rates.packages.length - 1)));
     const el = document.getElementById("rates");
     if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 64, behavior: "smooth" });
   };
+  const photos = (g: GalleryPhoto[]): Photo[] =>
+    g.map((p) => {
+      const im = h.img(p.photo, "(min-width: 900px) 60vw, 100vw");
+      return { src: im?.src, srcSet: im?.srcSet, label: h.L(p.label), title: h.L(p.title) };
+    });
+  const openViewer = (list: Photo[]) => (i: number) => setViewer({ photos: list, i });
+
+  // Build the page in section order; consecutive diving/boats/gear sections share one band.
+  const blocks: ReactNode[] = [];
+  let band: ReactNode[] | null = null;
+  let bandHasDiving = false;
+  const flush = () => {
+    if (band) blocks.push(<section key={`band-${blocks.length}`} id={bandHasDiving ? "diving" : undefined} className="section fr-diving">{band}</section>);
+    band = null;
+    bandHasDiving = false;
+  };
+  for (const k of data.order) {
+    if (DIVING_BAND.has(k)) {
+      const first = !band;
+      band ??= [];
+      if (k === "diving") {
+        bandHasDiving = true;
+        band.push(<Diving key={k} c={c} h={h} photos={photos(c.diving.gallery)} onOpen={openViewer} pickRates={() => pick(0)} />);
+      } else if (k === "boats") band.push(<Boats key={k} c={c} h={h} first={first} />);
+      else band.push(<Gear key={k} c={c} h={h} first={first} />);
+      continue;
+    }
+    flush();
+    if (k === "hero") blocks.push(<Hero key={k} c={c} h={h} />);
+    else if (k === "glance") blocks.push(<Glance key={k} c={c} h={h} onPick={pick} />);
+    else if (k === "stay") blocks.push(<Stay key={k} c={c} h={h} photos={photos(c.stay.gallery)} onOpen={openViewer} />);
+    else if (k === "rates") blocks.push(<Rates key={k} c={c} h={h} tab={Math.min(tab, c.rates.packages.length - 1)} setTab={setTab} />);
+    else if (k === "cta") blocks.push(<Cta key={k} c={c} h={h} />);
+  }
+  flush();
 
   return (
     <div className="page">
       <SiteHeader current="facilities" />
-
-      <section data-theme="dark" className="fr-hero">
-        <img className="about-hero__img" src="/latest/b-stay-shop.webp" alt="The Air Dive Alor shop porch in Alor Kecil" fetchPriority="high" />
-        <div aria-hidden="true" className="fr-hero__shade" />
-        <div className="fr-hero__body">
-          <Eyebrow onDark>{t("Pricing · Facilities and rates")}</Eyebrow>
-          <h1 className="about-hero__title">{t("Dive and stay in Alor Kecil.")}</h1>
-          <p className="about-hero__lead fr-hero__lead">{t("Four rooms in the village, three home-cooked meals a day, and dive packages from five days.")}</p>
-        </div>
-      </section>
-
-      <section className="fr-glance">
-        <div data-theme="light" className="fr-glance__grid">
-          {AT_A_GLANCE.map((g) => (
-            <button key={g.tab} type="button" className="fr-glance__item" onClick={() => pick(g.tab)}>
-              <span className="fr-caps-primary">{t(g.label)}</span>
-              <span className="fr-glance__title">{t(g.title)}</span>
-              <span className="fr-glance__price">
-                <span className="fr-glance__from">{t(g.from)}</span>
-                <span className="fr-glance__amount">{g.price}</span>
-              </span>
-              <span className="fr-glance__note">{t(g.note)}</span>
-              <span className="fr-glance__more">
-                <span>{t("See rates")}</span>
-                <Icon name="arrow-right" size={16} />
-              </span>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      <section id="stay" className="section">
-        <div className="fr-intro">
-          <div className="fr-intro__head">
-            <Eyebrow>{t("01 · Air Dive Stay")}</Eyebrow>
-            <h2 className="h2">{t("Village life, four good rooms.")}</h2>
-          </div>
-          <div className="fr-intro__text">
-            <p className="fr-p">{t("We are in the heart of Alor Kecil village. Forget the alarm. Wake up to roosters and birds, and enjoy the quiet of the countryside.")}</p>
-            <p className="fr-p">{t("Every stay includes three meals a day: breakfast, lunch and dinner. Our cook makes them fresh, with local recipes and food from the market.")}</p>
-          </div>
-        </div>
-        <div className="fr-split">
-          <Gallery photos={STAY_PHOTOS} onOpen={(i) => setViewer({ photos: STAY_PHOTOS, i })} />
-          <div className="fr-side">
-            <div className="fr-side__head">
-              <span className="fr-side__title">{t("In every room")}</span>
-              <Tag tone="primary" icon="house">
-                {t("4 deluxe rooms")}
-              </Tag>
-            </div>
-            <IconList items={ROOM} />
-            <div data-theme="light">
-              <Alert>{t("There is no wifi yet. To stay in touch, you can use our office mobile internet at dinner time.")}</Alert>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="diving" className="section fr-diving">
-        <div className="fr-intro">
-          <div className="fr-intro__head">
-            <Eyebrow>{t("02 · Air Dive Diving")}</Eyebrow>
-            <h2 className="h2">{t("Everything ready before you dive.")}</h2>
-          </div>
-          <div className="fr-intro__text">
-            <p className="fr-p">{t("Our dive shop and boat are three minutes apart. Gear, tanks and the boat are ready each morning, so you only need to come to the briefing.")}</p>
-          </div>
-        </div>
-        <div className="fr-split">
-          <div className="fr-side">
-            <div className="fr-side__head">
-              <span className="fr-side__title">{t("Every dive day")}</span>
-            </div>
-            <IconList items={DIVE_DAY} />
-            <div className="fr-row">
-              <Button variant="secondary" size="large" icon="arrow-right" iconPosition="suffix" onClick={() => pick("a")}>
-                {t("See diving rates")}
-              </Button>
-            </div>
-          </div>
-          <Gallery photos={DIVE_PHOTOS} onOpen={(i) => setViewer({ photos: DIVE_PHOTOS, i })} />
-        </div>
-
-        <div className="fr-sub">
-          <div className="fr-sub__head">
-            <h3 className="fr-sub__title">{t("Two boats, built for Alor.")}</h3>
-            <p className="lead">{t("Both boats carry the same safety equipment, so every group dives with the same standard.")}</p>
-          </div>
-          <div className="boats">
-            {BOATS.map((b) => (
-              <article key={b.name} className="boat fr-boat">
-                <div className="boat__media">
-                  <img src={b.img} alt={t(`${b.name} dive boat`)} loading="lazy" />
-                </div>
-                <div className="boat__body">
-                  <h4 className="boat__name">{b.name}</h4>
-                  <p className="boat__text fr-boat__text">{t(b.text)}</p>
-                  <div className="boat__specs">
-                    {b.specs.map((sp) => (
-                      <div key={sp.label} className="boat__spec">
-                        <Icon name={sp.icon} size={18} style={{ color: "var(--icon-primary)" }} />
-                        <span className="boat__spec-label fr-boat__label">{t(sp.label)}</span>
-                        <span className="boat__spec-value">{t(sp.value)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        </div>
-
-        <div className="fr-sub">
-          <div className="fr-sub__head">
-            <h3 className="fr-sub__title">{t("Gear and equipment.")}</h3>
-            <p className="lead">{t("Everything you need to dive is here. You only need to bring yourself.")}</p>
-          </div>
-          <div className="fr-gear">
-            {GEAR.map(([icon, title, text]) => (
-              <div key={title} className="fr-gear__item">
-                <Icon name={icon} size={26} style={{ color: "var(--icon-primary)" }} />
-                <span className="fr-gear__title">{t(title)}</span>
-                <p>{t(text)}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <section id="rates" className="section fr-rates">
-        <div className="stories__head fr-rates__head">
-          <div className="fr-rates__intro">
-            <Eyebrow>{t("03 · Diving rates")}</Eyebrow>
-            <h2 className="h2">{t("Choose your package.")}</h2>
-            <p className="lead">{t("Pick a package by how long you stay. Tap a row to ask us on WhatsApp.")}</p>
-          </div>
-          <div role="tablist" aria-label="Rate type" className="chips">
-            {(["a", "b", "c"] as Tab[]).map((k) => (
-              <Button key={k} role="tab" aria-selected={k === tab} variant={k === tab ? "primary" : "secondary"} size="small" onClick={() => setTab(k)}>
-                {t(PACKAGES[k].name)}
-              </Button>
-            ))}
-          </div>
-        </div>
-        <div className="fr-split fr-split--top">
-          <div className="fr-rates__main">
-            <div className="fr-rates__title">
-              <span className="fr-rates__name">{t(P.name)}</span>
-              <span className="fr-rates__sub">{t(P.sub)}</span>
-            </div>
-            {isPkg ? (
-              <div className="fr-table">
-                <div className="fr-table__head">
-                  <span>{t("Trip length")}</span>
-                  <span>{t("Price")}</span>
-                  <span />
-                </div>
-                {P.rows.map(([d, v, pr]) => (
-                  <a
-                    key={d}
-                    className="fr-table__row"
-                    href={waLink(`Hi Air Dive Alor, I am interested in ${P.name}: ${v} dives, ${d} days / ${d - 1} nights (IDR ${pr}).`)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`Ask about ${P.name}, ${v} dives, ${d} days`}
-                  >
-                    <span className="fr-table__len">
-                      <span className="fr-table__days">{id ? `${d} hari, ${d - 1} malam` : `${d} days, ${d - 1} nights`}</span>
-                      <span className="fr-table__dives">{id ? `${v} kali selam` : `${v} dives`}</span>
-                    </span>
-                    <span className="fr-table__price">IDR {pr}</span>
-                    <Icon name="arrow-right" size={18} style={{ color: "var(--icon-primary)" }} />
-                  </a>
-                ))}
-              </div>
-            ) : (
-              <>
-                <div className="fr-ala">
-                  <AlaCard icon="waves" label="Fun dive" price="IDR 1,000,000" per="per dive" href={waLink("Hi Air Dive Alor, I would like to book fun dives.")} />
-                  <AlaCard icon="bed-double" label="Stay" price="IDR 800,000" per="per night" href={waLink("Hi Air Dive Alor, I would like to book a room.")} />
-                </div>
-                <div className="fr-row">
-                  <Tag tone="primary" icon="percent">
-                    {t("10% off from 10 dives")}
-                  </Tag>
-                </div>
-              </>
-            )}
-          </div>
-          <div className="fr-incl">
-            <span className="label-caps">{t("Included")}</span>
-            {(isPkg
-              ? ["Regular room and 3 meals a day", "Diving equipment", "Airport transfer", "Government tax", "Snacks on the boat"]
-              : ["Diving equipment", "Airport transfer", "Snacks on the boat"]
-            ).map((it) => (
-              <div key={it} className="fr-incl__row">
-                <Icon name="circle-check" size={20} style={{ color: "var(--icon-primary)", flex: "none" }} />
-                <span>{t(it)}</span>
-              </div>
-            ))}
-            <span className="label-caps fr-incl__sep">{t("Not included")}</span>
-            {(isPkg ? ["Marine park fee"] : ["Lunch", "Local government tax", "Marine park fee"]).map((it) => (
-              <div key={it} className="fr-incl__row">
-                <Icon name="circle-x" size={20} style={{ color: "var(--neutral-500)", flex: "none" }} />
-                <span>{t(it)}</span>
-              </div>
-            ))}
-            <p className="fr-incl__note">
-              {t(isPkg ? "Minimum booking is 2 people. If you travel alone, a single-room surcharge applies." : "Book 10 dives or more and get 10% off.")}
-            </p>
-          </div>
-        </div>
-        <div data-theme="light" className="fr-note">
-          <Alert>{t("These prices are estimates. Your final cost depends on the dives and nights you actually take. Group rates are available on request.")}</Alert>
-        </div>
-      </section>
-
-      <section className="cta-band">
-        <div className="cta-band__text">
-          <h2 className="h2">{t("Coming as a group?")}</h2>
-          <p className="lead">{t("Tell us your dates and group size. We will send you a group rate.")}</p>
-        </div>
-        <div className="cta-band__actions">
-          <ButtonLink href={waLink("Hi Air Dive Alor, I would like a group rate. Dates: , group size: ")} external variant="primary" size="xlarge" icon="message-circle">
-            {t("Ask for a group rate")}
-          </ButtonLink>
-          <ButtonLink href={ROUTES.courses} variant="secondary" size="xlarge" icon="arrow-right" iconPosition="suffix">
-            {t("See dive courses")}
-          </ButtonLink>
-        </div>
-      </section>
-
+      {blocks}
       {viewer && <PhotoViewer photos={viewer.photos} start={viewer.i} onClose={() => setViewer(null)} />}
-
       <SiteFooter />
     </div>
   );
 }
 
-function IconList({ items }: { items: [IconName, string][] }) {
-  const { t } = useLang();
+type P = { c: FacilitiesContent; h: ContentHelpers };
+
+function Hero({ c, h }: P) {
+  const { L, img } = h;
+  const photo = img(c.hero.image);
+  return (
+    <section data-theme="dark" className="fr-hero">
+      {photo && <img className="about-hero__img" src={photo.src} srcSet={photo.srcSet} sizes={photo.sizes} alt={photo.alt || L(c.hero.title)} fetchPriority="high" />}
+      <div aria-hidden="true" className="fr-hero__shade" />
+      <div className="fr-hero__body">
+        {L(c.hero.eyebrow) && <Eyebrow onDark>{L(c.hero.eyebrow)}</Eyebrow>}
+        <h1 className="about-hero__title">{L(c.hero.title)}</h1>
+        {L(c.hero.lead) && <p className="about-hero__lead fr-hero__lead">{L(c.hero.lead)}</p>}
+      </div>
+    </section>
+  );
+}
+
+function Glance({ c, h, onPick }: P & { onPick: (k: number) => void }) {
+  const { L } = h;
+  if (!c.glance.items.length) return null;
+  return (
+    <section className="fr-glance">
+      <div data-theme="light" className="fr-glance__grid" style={{ gridTemplateColumns: `repeat(${c.glance.items.length}, minmax(0, 1fr))` }}>
+        {c.glance.items.map((g, i) => (
+          <button key={i} type="button" className="fr-glance__item" onClick={() => onPick((g.package || 1) - 1)}>
+            <span className="fr-caps-primary">{L(g.label)}</span>
+            <span className="fr-glance__title">{L(g.title)}</span>
+            <span className="fr-glance__price">
+              {L(g.from) && <span className="fr-glance__from">{L(g.from)}</span>}
+              <span className="fr-glance__amount">{g.price}</span>
+            </span>
+            {L(g.note) && <span className="fr-glance__note">{L(g.note)}</span>}
+            {L(c.glance.moreLabel) && (
+              <span className="fr-glance__more">
+                <span>{L(c.glance.moreLabel)}</span>
+                <Icon name="arrow-right" size={16} />
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function Intro({ h, eyebrow, title, paragraphs }: { h: ContentHelpers; eyebrow: FacilitiesContent["stay"]["eyebrow"]; title: FacilitiesContent["stay"]["title"]; paragraphs: FacilitiesContent["stay"]["paragraphs"] }) {
+  const { L } = h;
+  return (
+    <div className="fr-intro">
+      <div className="fr-intro__head">
+        {L(eyebrow) && <Eyebrow>{L(eyebrow)}</Eyebrow>}
+        <h2 className="h2">{L(title)}</h2>
+      </div>
+      {paragraphs.length > 0 && (
+        <div className="fr-intro__text">
+          {paragraphs.map((p, i) => (
+            <p key={i} className="fr-p">
+              {L(p.text)}
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Stay({ c, h, photos, onOpen }: P & { photos: Photo[]; onOpen: (list: Photo[]) => (i: number) => void }) {
+  const { L } = h;
+  const s = c.stay;
+  return (
+    <section id="stay" className="section">
+      <Intro h={h} eyebrow={s.eyebrow} title={s.title} paragraphs={s.paragraphs} />
+      <div className="fr-split">
+        <Gallery photos={photos} onOpen={onOpen(photos)} />
+        <div className="fr-side">
+          {(L(s.listTitle) || L(s.badge)) && (
+            <div className="fr-side__head">
+              {L(s.listTitle) && <span className="fr-side__title">{L(s.listTitle)}</span>}
+              {L(s.badge) && (
+                <Tag tone="primary" icon="house">
+                  {L(s.badge)}
+                </Tag>
+              )}
+            </div>
+          )}
+          <IconList h={h} items={s.items} />
+          {L(s.note) && (
+            <div data-theme="light">
+              <Alert>{L(s.note)}</Alert>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Diving({ c, h, photos, onOpen, pickRates }: P & { photos: Photo[]; onOpen: (list: Photo[]) => (i: number) => void; pickRates: () => void }) {
+  const { L } = h;
+  const d = c.diving;
+  return (
+    <>
+      <Intro h={h} eyebrow={d.eyebrow} title={d.title} paragraphs={d.paragraphs} />
+      <div className="fr-split">
+        <div className="fr-side">
+          {L(d.listTitle) && (
+            <div className="fr-side__head">
+              <span className="fr-side__title">{L(d.listTitle)}</span>
+            </div>
+          )}
+          <IconList h={h} items={d.items} />
+          {L(d.ratesLabel) && (
+            <div className="fr-row">
+              <Button variant="secondary" size="large" icon="arrow-right" iconPosition="suffix" onClick={pickRates}>
+                {L(d.ratesLabel)}
+              </Button>
+            </div>
+          )}
+        </div>
+        <Gallery photos={photos} onOpen={onOpen(photos)} />
+      </div>
+    </>
+  );
+}
+
+function SubHead({ h, title, lead }: { h: ContentHelpers; title: FacilitiesContent["boats"]["title"]; lead: FacilitiesContent["boats"]["lead"] }) {
+  const { L } = h;
+  return (
+    <div className="fr-sub__head">
+      <h3 className="fr-sub__title">{L(title)}</h3>
+      {L(lead) && <p className="lead">{L(lead)}</p>}
+    </div>
+  );
+}
+
+function Boats({ c, h, first }: P & { first: boolean }) {
+  const { L, img } = h;
+  return (
+    <div className="fr-sub" style={first ? { marginTop: 0 } : undefined}>
+      <SubHead h={h} title={c.boats.title} lead={c.boats.lead} />
+      <div className="boats">
+        {c.boats.items.map((b, i) => {
+          const photo = img(b.photo, "(min-width: 900px) 50vw, 100vw");
+          return (
+            <article key={i} className="boat fr-boat">
+              <div className="boat__media">{photo && <img src={photo.src} srcSet={photo.srcSet} sizes={photo.sizes} alt={photo.alt || `${b.name} dive boat`} loading="lazy" />}</div>
+              <div className="boat__body">
+                <h4 className="boat__name">{b.name}</h4>
+                {L(b.text) && <p className="boat__text fr-boat__text">{L(b.text)}</p>}
+                <div className="boat__specs">
+                  {b.specs.map((sp, k) => (
+                    <div key={k} className="boat__spec">
+                      <Icon name={asIcon(sp.icon)} size={18} style={{ color: "var(--icon-primary)" }} />
+                      <span className="boat__spec-label fr-boat__label">{L(sp.label)}</span>
+                      <span className="boat__spec-value">{L(sp.value)}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function Gear({ c, h, first }: P & { first: boolean }) {
+  const { L } = h;
+  return (
+    <div className="fr-sub" style={first ? { marginTop: 0 } : undefined}>
+      <SubHead h={h} title={c.gear.title} lead={c.gear.lead} />
+      <div className="fr-gear">
+        {c.gear.items.map((g, i) => (
+          <div key={i} className="fr-gear__item">
+            <Icon name={asIcon(g.icon)} size={26} style={{ color: "var(--icon-primary)" }} />
+            <span className="fr-gear__title">{L(g.title)}</span>
+            {L(g.text) && <p>{L(g.text)}</p>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+const fill = (tpl: string, v: Record<string, string | number>) => tpl.replace(/\{(\w+)\}/g, (m, k) => (k in v ? String(v[k]) : m));
+
+function Rates({ c, h, tab, setTab }: P & { tab: number; setTab: (k: number) => void }) {
+  const { L, t, lang } = h;
+  const id = lang === "ID";
+  const r = c.rates;
+  const P = r.packages[tab];
+  if (!P) return null;
+  return (
+    <section id="rates" className="section fr-rates">
+      <div className="stories__head fr-rates__head">
+        <div className="fr-rates__intro">
+          {L(r.eyebrow) && <Eyebrow>{L(r.eyebrow)}</Eyebrow>}
+          <h2 className="h2">{L(r.title)}</h2>
+          {L(r.lead) && <p className="lead">{L(r.lead)}</p>}
+        </div>
+        {r.packages.length > 1 && (
+          <div role="tablist" aria-label="Rate type" className="chips">
+            {r.packages.map((p, k) => (
+              <Button key={k} role="tab" aria-selected={k === tab} variant={k === tab ? "primary" : "secondary"} size="small" onClick={() => setTab(k)}>
+                {L(p.name)}
+              </Button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="fr-split fr-split--top">
+        <div className="fr-rates__main">
+          <div className="fr-rates__title">
+            <span className="fr-rates__name">{L(P.name)}</span>
+            {L(P.sub) && <span className="fr-rates__sub">{L(P.sub)}</span>}
+          </div>
+          {P.rows.length > 0 ? (
+            <div className="fr-table">
+              <div className="fr-table__head">
+                <span>{t("Trip length")}</span>
+                <span>{t("Price")}</span>
+                <span />
+              </div>
+              {P.rows.map((row, k) => (
+                <a
+                  key={k}
+                  className="fr-table__row"
+                  href={waLink(fill(r.rowMessage || "Hi Air Dive Alor, I am interested in {package}: {dives} dives, {days} days / {nights} nights ({price}).", { package: P.name.en, ...row }))}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`Ask about ${P.name.en}, ${row.dives} dives, ${row.days} days`}
+                >
+                  <span className="fr-table__len">
+                    <span className="fr-table__days">{id ? `${row.days} hari, ${row.nights} malam` : `${row.days} days, ${row.nights} nights`}</span>
+                    <span className="fr-table__dives">{id ? `${row.dives} kali selam` : `${row.dives} dives`}</span>
+                  </span>
+                  <span className="fr-table__price">{row.price}</span>
+                  <Icon name="arrow-right" size={18} style={{ color: "var(--icon-primary)" }} />
+                </a>
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className="fr-ala">
+                {P.cards.map((cd, k) => (
+                  <a key={k} className="fr-ala__card" href={waLink(cd.message || undefined)} target="_blank" rel="noopener noreferrer">
+                    <Icon name={asIcon(cd.icon)} size={26} style={{ color: "var(--icon-primary)" }} />
+                    <span className="label-caps">{L(cd.label)}</span>
+                    <span className="fr-ala__price">{cd.price}</span>
+                    {L(cd.per) && <span className="fr-ala__per">{L(cd.per)}</span>}
+                  </a>
+                ))}
+              </div>
+            </>
+          )}
+          {L(P.tag) && (
+            <div className="fr-row">
+              <Tag tone="primary" icon="percent">
+                {L(P.tag)}
+              </Tag>
+            </div>
+          )}
+        </div>
+        <div className="fr-incl">
+          {P.included.length > 0 && <span className="label-caps">{t("Included")}</span>}
+          {P.included.map((it, k) => (
+            <div key={k} className="fr-incl__row">
+              <Icon name="circle-check" size={20} style={{ color: "var(--icon-primary)", flex: "none" }} />
+              <span>{L(it.text)}</span>
+            </div>
+          ))}
+          {P.excluded.length > 0 && <span className="label-caps fr-incl__sep">{t("Not included")}</span>}
+          {P.excluded.map((it, k) => (
+            <div key={k} className="fr-incl__row">
+              <Icon name="circle-x" size={20} style={{ color: "var(--neutral-500)", flex: "none" }} />
+              <span>{L(it.text)}</span>
+            </div>
+          ))}
+          {L(P.note) && <p className="fr-incl__note">{L(P.note)}</p>}
+        </div>
+      </div>
+      {L(r.note) && (
+        <div data-theme="light" className="fr-note">
+          <Alert>{L(r.note)}</Alert>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function Cta({ c, h }: P) {
+  const { L } = h;
+  return (
+    <section className="cta-band">
+      <div className="cta-band__text">
+        <h2 className="h2">{L(c.cta.title)}</h2>
+        {L(c.cta.text) && <p className="lead">{L(c.cta.text)}</p>}
+      </div>
+      <div className="cta-band__actions">
+        {L(c.cta.primaryLabel) && (
+          <ButtonLink href={waLink(c.cta.primaryMessage || undefined)} external variant="primary" size="xlarge" icon="message-circle">
+            {L(c.cta.primaryLabel)}
+          </ButtonLink>
+        )}
+        {L(c.cta.secondaryLabel) && c.cta.secondaryUrl && (
+          <ButtonLink href={c.cta.secondaryUrl} external={/^https?:/.test(c.cta.secondaryUrl)} variant="secondary" size="xlarge" icon="arrow-right" iconPosition="suffix">
+            {L(c.cta.secondaryLabel)}
+          </ButtonLink>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function IconList({ h, items }: { h: ContentHelpers; items: IconItem[] }) {
+  if (!items.length) return null;
   return (
     <div className="fr-list">
-      {items.map(([icon, text]) => (
-        <div key={text} className="fr-list__row">
-          <Icon name={icon} size={22} style={{ color: "var(--icon-primary)", flex: "none" }} />
-          <span>{t(text)}</span>
+      {items.map((it, i) => (
+        <div key={i} className="fr-list__row">
+          <Icon name={asIcon(it.icon)} size={22} style={{ color: "var(--icon-primary)", flex: "none" }} />
+          <span>{h.L(it.text)}</span>
         </div>
       ))}
     </div>
   );
 }
 
-function AlaCard({ icon, label, price, per, href }: { icon: IconName; label: string; price: string; per: string; href: string }) {
-  const { t } = useLang();
-  return (
-    <a className="fr-ala__card" href={href} target="_blank" rel="noopener noreferrer">
-      <Icon name={icon} size={26} style={{ color: "var(--icon-primary)" }} />
-      <span className="label-caps">{t(label)}</span>
-      <span className="fr-ala__price">{price}</span>
-      <span className="fr-ala__per">{t(per)}</span>
-    </a>
-  );
-}
-
 /** Large photo with caption and arrows, plus a row of thumbnails. Photos without a source show a placeholder. */
 function Gallery({ photos, onOpen }: { photos: Photo[]; onOpen: (i: number) => void }) {
-  const { t } = useLang();
+  const { t } = useContent({});
   const [i, setI] = useState(0);
   const n = photos.length;
-  const x = photos[i];
+  if (!n) return null;
+  const x = photos[Math.min(i, n - 1)];
   return (
     <div className="fr-gallery">
       <div className="fr-gallery__main">
         {x.src ? (
           <button type="button" className="fr-gallery__open" aria-label={t("View photo larger")} onClick={() => onOpen(i)}>
-            <img src={x.src} alt={t(x.title)} />
+            <img src={x.src} srcSet={x.srcSet} sizes={x.srcSet ? "(min-width: 900px) 60vw, 100vw" : undefined} alt={x.title} />
           </button>
         ) : (
           <div className="fr-gallery__empty">
@@ -390,8 +432,8 @@ function Gallery({ photos, onOpen }: { photos: Photo[]; onOpen: (i: number) => v
         )}
         <div data-theme="dark" className="fr-gallery__caption">
           <div className="fr-gallery__text">
-            <span className="fr-gallery__label">{t(x.label)}</span>
-            <span className="fr-gallery__title">{t(x.title)}</span>
+            <span className="fr-gallery__label">{x.label}</span>
+            <span className="fr-gallery__title">{x.title}</span>
           </div>
           <div className="fr-gallery__controls">
             <span className="fr-gallery__count">
@@ -405,17 +447,17 @@ function Gallery({ photos, onOpen }: { photos: Photo[]; onOpen: (i: number) => v
       </div>
       <div className="fr-thumbs" style={{ gridTemplateColumns: `repeat(${n}, minmax(0, 1fr))` }}>
         {photos.map((p, j) => (
-          <button key={p.label} type="button" className="fr-thumb" aria-label={`Show photo: ${t(p.title)}`} aria-pressed={j === i} onClick={() => setI(j)}>
+          <button key={j} type="button" className="fr-thumb" aria-label={`Show photo: ${p.title}`} aria-pressed={j === i} onClick={() => setI(j)}>
             <span className="fr-thumb__img">
               {p.src ? (
-                <img src={p.src} alt="" loading="lazy" />
+                <img src={p.src} srcSet={p.srcSet} sizes={p.srcSet ? "160px" : undefined} alt="" loading="lazy" />
               ) : (
                 <span className="fr-thumb__empty">
                   <Icon name="image-plus" size={22} />
                 </span>
               )}
             </span>
-            <span className="fr-thumb__label">{t(p.label)}</span>
+            <span className="fr-thumb__label">{p.label}</span>
           </button>
         ))}
       </div>
@@ -425,7 +467,7 @@ function Gallery({ photos, onOpen }: { photos: Photo[]; onOpen: (i: number) => v
 
 /** Full-screen viewer for a gallery; skips photos that have no source yet. */
 function PhotoViewer({ photos, start, onClose }: { photos: Photo[]; start: number; onClose: () => void }) {
-  const { t } = useLang();
+  const { t } = useContent({});
   const withSrc = photos.filter((p) => p.src);
   const [i, setI] = useState(Math.max(0, withSrc.indexOf(photos[start])));
   const n = withSrc.length;
@@ -445,11 +487,12 @@ function PhotoViewer({ photos, start, onClose }: { photos: Photo[]; start: numbe
     };
   }, [n, onClose]);
 
+  if (!x) return null;
   const stop = (e: React.MouseEvent) => e.stopPropagation();
   return (
     <div data-theme="dark" role="dialog" aria-modal="true" aria-label={t("Photo viewer")} className="fr-viewer">
       <div className="fr-viewer__bar">
-        <span className="fr-gallery__label">{t(x.label)}</span>
+        <span className="fr-gallery__label">{x.label}</span>
         <span className="fr-viewer__count">
           {i + 1} / {n}
         </span>
@@ -459,12 +502,12 @@ function PhotoViewer({ photos, start, onClose }: { photos: Photo[]; start: numbe
         <span onClick={stop}>
           <Button variant="secondary" size="large" icon="chevron-left" iconOnly aria-label={t("Previous photo")} onClick={() => setI((i + n - 1) % n)} />
         </span>
-        <img className="fr-viewer__img" src={x.src} alt={t(x.title)} onClick={stop} />
+        <img className="fr-viewer__img" src={x.src} srcSet={x.srcSet} sizes={x.srcSet ? "100vw" : undefined} alt={x.title} onClick={stop} />
         <span onClick={stop}>
           <Button variant="secondary" size="large" icon="chevron-right" iconOnly aria-label={t("Next photo")} onClick={() => setI((i + 1) % n)} />
         </span>
       </div>
-      <div className="fr-viewer__title">{t(x.title)}</div>
+      <div className="fr-viewer__title">{x.title}</div>
     </div>
   );
 }
