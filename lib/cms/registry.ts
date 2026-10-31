@@ -3,6 +3,7 @@
  * Permissions, API routes and screens are all derived from this list.
  */
 import { ABOUT_SECTIONS } from "./about-sections";
+import { BLOG_SECTIONS } from "./blog-sections";
 import { COURSE_FIELDS } from "./course-fields";
 import { COURSES_SECTIONS } from "./courses-sections";
 import type { Field } from "./fields";
@@ -10,6 +11,7 @@ import { DIVE_SITES_SECTIONS } from "./dive-sites-sections";
 import { FACILITIES_SECTIONS } from "./facilities-sections";
 import { HOME_SECTIONS } from "./home-sections";
 import type { SectionDef } from "./sections";
+import { CATEGORY_FIELDS, POST_FIELDS } from "./post-fields";
 import { SITE_FIELDS } from "./site-fields";
 
 export interface PageDef {
@@ -38,6 +40,10 @@ export interface CollectionDef {
   listHref: string;
   /** Sidebar icon (lucide name). */
   icon: string;
+  /** Order items by this field, newest (highest) first, instead of by hand. */
+  sortField?: string;
+  /** Items have no page of their own on the website (no preview or "View live"). */
+  noItemPage?: boolean;
 }
 
 export const PAGES: PageDef[] = [
@@ -53,6 +59,7 @@ export const PAGES: PageDef[] = [
   { slug: "facilities", label: "Facilities and rates", href: "/facilities-and-rates", icon: "bed-double", sections: FACILITIES_SECTIONS, anchors: { stay: "stay", diving: "diving", rates: "rates" } },
   { slug: "dive-courses", label: "Dive courses", href: "/dive-courses", icon: "graduation-cap", sections: COURSES_SECTIONS, anchors: { list: "courses" } },
   { slug: "about-us", label: "About us", href: "/about-us", icon: "info", sections: ABOUT_SECTIONS, anchors: { story: "story", name: "name", boats: "boats" } },
+  { slug: "blog", label: "Blog", href: "/blog", icon: "newspaper", sections: BLOG_SECTIONS, anchors: { stories: "stories" } },
 ];
 
 export const COLLECTIONS: CollectionDef[] = [
@@ -77,6 +84,30 @@ export const COLLECTIONS: CollectionDef[] = [
     itemHref: (slug) => `/dive-courses/${slug}`,
     listHref: "/dive-courses",
     icon: "award",
+  },
+  {
+    key: "posts",
+    label: "Blog stories",
+    itemLabel: "story",
+    description: "Stories on the blog, newest first by date. The newest is featured at the top of the blog unless the Blog page picks another one.",
+    fields: POST_FIELDS,
+    titleField: "title",
+    itemHref: (slug) => `/blog/${slug}`,
+    listHref: "/blog",
+    icon: "notebook-pen",
+    sortField: "date",
+  },
+  {
+    key: "categories",
+    label: "Blog categories",
+    itemLabel: "category",
+    description: "Categories for blog stories. They become the filter buttons on the blog, in this order (only categories with stories are shown).",
+    fields: CATEGORY_FIELDS,
+    titleField: "name",
+    itemHref: () => "/blog",
+    listHref: "/blog",
+    icon: "tags",
+    noItemPage: true,
   },
 ];
 

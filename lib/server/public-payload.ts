@@ -1,8 +1,11 @@
 import type { PublishedAbout } from "@/lib/cms/about-types";
+import { toCard, type BlogContent, type CategoryContent, type PostCardData, type PostContent, type PublishedBlog, type PublishedPost } from "@/lib/cms/blog-cms-types";
 import type { CourseContent, PublishedCourse, PublishedCourses } from "@/lib/cms/courses-types";
 import type { PublishedDiveSites, PublishedSite, SiteContent } from "@/lib/cms/dive-sites-types";
 import type { PublishedFacilities } from "@/lib/cms/facilities-types";
 import type { HomeContent, PublishedHome } from "@/lib/cms/home-types";
+import { collectMediaIds } from "@/lib/cms/fields";
+import { POST_FIELDS } from "@/lib/cms/post-fields";
 import { liveItems } from "./collection-service";
 import { HttpError } from "./http";
 import { resolveMedia } from "./media-service";
@@ -51,6 +54,17 @@ async function coursesPayload(opts: Opts): Promise<PublishedCourses> {
   };
 }
 
+/** Blog: page content, published stories (newest first, as cards) and categories. */
+async function blogPayload(opts: Opts): Promise<PublishedBlog> {
+  const page = await pageContent("blog", opts);
+  const { items } = await liveItems<PostContent>("posts", opts);
+  const { items: categories } = await liveItems<CategoryContent>("categories", opts);
+  const posts = items.map(toCard);
+  const ids = new Set(page.mediaIds);
+  posts.forEach((p) => p.cover.mediaId && ids.add(p.cover.mediaId));
+  return { content: page.content as unknown as BlogContent, order: page.order, posts, categories, media: await resolveMedia(ids), publishedAt: page.publishedAt };
+}
+
 /** A page that is only its own sections (no collection items). */
 async function plainPayload(slug: string, opts: Opts) {
   const page = await pageContent(slug, opts);
@@ -61,6 +75,7 @@ export async function publicPagePayload(slug: string, opts: Opts = {}) {
   if (slug === "home") return homePayload(opts);
   if (slug === "dive-sites") return diveSitesPayload(opts);
   if (slug === "dive-courses") return coursesPayload(opts);
+  if (slug === "blog") return blogPayload(opts);
   if (slug === "about-us") return (await plainPayload(slug, opts)) as unknown as PublishedAbout;
   if (slug === "facilities") return (await plainPayload(slug, opts)) as unknown as PublishedFacilities;
   throw new HttpError(404, "Unknown page.");
@@ -115,5 +130,36 @@ export async function publicCoursePayload(slug: string, opts: Opts = {}): Promis
 export async function publicItemPayload(collection: string, slug: string, opts: Opts = {}) {
   if (collection === "sites") return publicSitePayload(slug, opts);
   if (collection === "courses") return publicCoursePayload(slug, opts);
+  if (collection === "posts") return publicPostPayload(slug, opts);
   throw new HttpError(404, "No public page for this collection.");
+}
+
+/** One story with newer/older neighbours, three more stories (same category first) and the shared story-page texts. */
+export async function publicPostPayload(slug: string, opts: Opts = {}): Promise<PublishedPost | null> {
+  const { items, mediaIds } = await liveItems<PostContent>("posts", opts);
+  const i = items.findIndex((x) => x.slug === slug);
+  if (i < 0) return null;
+  const post = items[i];
+  const others = items.filter((x) => x !== post);
+  const more = others.filter((x) => x.category === post.category).concat(others.filter((x) => x.category !== post.category)).slice(0, 3).map(toCard);
+  const newer = i > 0 ? toCard(items[i - 1]) : null;
+  const older = i < items.length - 1 ? toCard(items[i + 1]) : null;
+  const { items: categories } = await liveItems<CategoryContent>("categories", opts);
+  const page = await pageContent("blog", opts);
+  // Only this story's media plus the covers it links to.
+  const ids = new Set<number>();
+  const own = new Set<number>();
+  collectMediaIds(POST_FIELDS, post, own);
+  for (const id of own) if (mediaIds.has(id)) ids.add(id);
+  [newer, older, ...more].forEach((c: PostCardData | null) => c?.cover.mediaId && ids.add(c.cover.mediaId));
+  return {
+    post,
+    minutes: toCard(post).minutes,
+    newer,
+    older,
+    more,
+    categories,
+    texts: (page.content as unknown as BlogContent).post,
+    media: await resolveMedia(ids),
+  };
 }
