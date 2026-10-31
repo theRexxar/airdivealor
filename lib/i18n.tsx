@@ -93,6 +93,10 @@ const EXTRA: Record<string, string> = {
   "Dive insurance is required for every course.": "Asuransi selam wajib untuk setiap kursus.",
   "Flying after": "Terbang setelahnya",
   "No diving 24 hours before your flight out.": "Tidak menyelam 24 jam sebelum penerbangan pulang.",
+  // Home awards card (added after the prototype's dictionary)
+  "4.9 on Google": "4,9 di Google",
+  "From 180+ reviews": "Dari 180+ ulasan",
+  "2,000+ divers": "2.000+ penyelam",
 };
 
 const ID: Record<string, string> = { ...EXACT, ...SITES_ID, ...SITES_PAGE_ID, ...FACILITIES_ID, ...EXTRA };
