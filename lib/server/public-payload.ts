@@ -1,3 +1,4 @@
+import type { PublishedAbout } from "@/lib/cms/about-types";
 import type { CourseContent, PublishedCourse, PublishedCourses } from "@/lib/cms/courses-types";
 import type { PublishedDiveSites, PublishedSite, SiteContent } from "@/lib/cms/dive-sites-types";
 import type { PublishedFacilities } from "@/lib/cms/facilities-types";
@@ -60,6 +61,7 @@ export async function publicPagePayload(slug: string, opts: Opts = {}) {
   if (slug === "home") return homePayload(opts);
   if (slug === "dive-sites") return diveSitesPayload(opts);
   if (slug === "dive-courses") return coursesPayload(opts);
+  if (slug === "about-us") return (await plainPayload(slug, opts)) as unknown as PublishedAbout;
   if (slug === "facilities") return (await plainPayload(slug, opts)) as unknown as PublishedFacilities;
   throw new HttpError(404, "Unknown page.");
 }

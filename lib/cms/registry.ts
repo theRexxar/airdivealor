@@ -2,6 +2,7 @@
  * Everything the CMS manages: pages (made of sections) and collections (lists of items, like dive sites).
  * Permissions, API routes and screens are all derived from this list.
  */
+import { ABOUT_SECTIONS } from "./about-sections";
 import { COURSE_FIELDS } from "./course-fields";
 import { COURSES_SECTIONS } from "./courses-sections";
 import type { Field } from "./fields";
@@ -51,6 +52,7 @@ export const PAGES: PageDef[] = [
   { slug: "dive-sites", label: "Dive sites", href: "/dive-sites", icon: "waves", sections: DIVE_SITES_SECTIONS, anchors: { list: "sites" } },
   { slug: "facilities", label: "Facilities and rates", href: "/facilities-and-rates", icon: "bed-double", sections: FACILITIES_SECTIONS, anchors: { stay: "stay", diving: "diving", rates: "rates" } },
   { slug: "dive-courses", label: "Dive courses", href: "/dive-courses", icon: "graduation-cap", sections: COURSES_SECTIONS, anchors: { list: "courses" } },
+  { slug: "about-us", label: "About us", href: "/about-us", icon: "info", sections: ABOUT_SECTIONS, anchors: { story: "story", name: "name", boats: "boats" } },
 ];
 
 export const COLLECTIONS: CollectionDef[] = [

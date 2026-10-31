@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
+import { getAbout } from "@/lib/cms/fetch";
+import { seoMetadata } from "@/lib/cms/seo";
 import { AboutView } from "./AboutView";
 
-const description = "Air Dive Alor is an Indonesian-owned dive center in Alor Kecil, East Nusa Tenggara, founded in 2017 by six brothers. Meet our team and our boats.";
+/** Rendered per request from the cached CMS API response (see lib/cms/fetch.ts). */
+export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "About us | Air Dive Alor",
-  description,
-  openGraph: { title: "About us | Air Dive Alor", description, type: "website" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const data = await getAbout();
+  return seoMetadata(data.content.seo, data.media, "/about-us");
+}
 
-export default function AboutPage() {
-  return <AboutView />;
+export default async function AboutPage() {
+  return <AboutView data={await getAbout()} />;
 }
