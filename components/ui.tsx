@@ -6,9 +6,11 @@ import { LUCIDE, type IconName } from "@/lib/lucide";
 export type { IconName };
 
 export function Icon({ name, size = 24, style, className }: { name: IconName; size?: number; style?: CSSProperties; className?: string }) {
+  const cp = LUCIDE[name];
+  if (cp == null) return null;
   return (
     <i className={className ? `tw-icon ${className}` : "tw-icon"} style={{ fontSize: size, width: size, height: size, ...style }} aria-hidden="true">
-      {String.fromCodePoint(LUCIDE[name])}
+      {String.fromCodePoint(cp)}
     </i>
   );
 }
@@ -17,7 +19,7 @@ type Size = "xlarge" | "large" | "medium" | "small";
 const BTN_ICON: Record<Size, number> = { xlarge: 20, large: 20, medium: 18, small: 18 };
 
 interface BtnOwn {
-  variant?: "primary" | "secondary";
+  variant?: "primary" | "secondary" | "text";
   size?: Size;
   icon?: IconName;
   iconPosition?: "prefix" | "suffix";
@@ -84,5 +86,30 @@ export function Avatar({ name, size = 38 }: { name: string; size?: number }) {
         {initials}
       </span>
     </span>
+  );
+}
+
+/** Narrow a data string to an icon name (unknown names render nothing). */
+export const asIcon = (name: string) => name as IconName;
+
+export function Tag({ children, icon, tone = "grey" }: { children: ReactNode; icon?: IconName; tone?: "grey" | "primary" }) {
+  return (
+    <span className={`tw-tag tw-tag--${tone}`}>
+      {icon && <Icon name={icon} size={12} />}
+      <span className="tw-tag__label">{children}</span>
+    </span>
+  );
+}
+
+export function Alert({ children }: { children: ReactNode }) {
+  return (
+    <div className="tw-alert tw-alert--info" role="status">
+      <span className="tw-alert__icon">
+        <Icon name="info" size={20} />
+      </span>
+      <div className="tw-alert__body">
+        <div className="tw-alert__title">{children}</div>
+      </div>
+    </div>
   );
 }
