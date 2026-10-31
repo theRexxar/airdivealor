@@ -3,21 +3,20 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Alert, ButtonLink, Eyebrow, Icon, Tag, type IconName } from "@/components/ui";
-import { useLang } from "@/lib/i18n";
+import type { PublishedSite } from "@/lib/cms/dive-sites-types";
+import { useContent } from "@/lib/cms/use-content";
 import { ROUTES, waLink } from "@/lib/site";
-import { SITES, siteHref, siteNum } from "@/lib/sites";
+import { siteHref, siteNum } from "@/lib/sites";
 import "../sites.css";
 import "../../dive-courses/courses.css";
 
-export function SiteGuideView({ slug }: { slug: string }) {
-  const { t } = useLang();
+/** One dive site guide, rendered from the CMS (published, or the draft in the CMS preview). */
+export function SiteGuideView({ data }: { data: PublishedSite }) {
+  const { L, img, t } = useContent(data.media);
   const router = useRouter();
-  const i = SITES.findIndex((s) => s.slug === slug);
-  const x = SITES[i];
-  const N = SITES.length;
-  const prev = SITES[(i + N - 1) % N];
-  const next = SITES[(i + 1) % N];
-  const book = waLink(`Hi Air Dive Alor, I would like to dive ${x.name}.`);
+  const x = data.site;
+  const g = data.guide;
+  const book = waLink((g.bookMessage || "Hi Air Dive Alor, I would like to dive {site}.").replace(/\{site\}/g, x.name));
 
   // Escape goes back to the list, like closing the prototype's guide overlay.
   useEffect(() => {
@@ -25,27 +24,29 @@ export function SiteGuideView({ slug }: { slug: string }) {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [router]);
-  useEffect(() => {
-    document.title = `${x.name} | Air Dive Alor`;
-  }, [x.name]);
 
-  const stats = ([
-    { icon: "arrow-down-to-line", label: "Depth", value: x.depth },
-    { icon: "wind", label: "Current", value: x.current },
-    { icon: "eye", label: "Visibility", value: x.vis },
-    { icon: "thermometer", label: "Water temp", value: x.temp },
-  ] as { icon: IconName; label: string; value: string }[]).filter((s) => s.value);
-  const access = ([
-    { icon: "ship", label: "Boat time", value: x.access },
-    { icon: "anchor", label: "Entry", value: x.entry },
-    { icon: "badge-check", label: "Minimum level", value: x.minLevel },
-    { icon: "triangle-alert", label: "Watch for", value: x.hazards },
-    { icon: "clock", label: "Best time", value: x.best },
-  ] as { icon: IconName; label: string; value: string }[]).filter((s) => s.value);
-  const [about0, about1] = x.about ?? [];
-  const hasStats = stats.length > 0 || !!x.level;
-  const hasTopo = !!(x.topo || about0);
-  const hasLife = !!(x.see.length || about1 || x.gallery.length);
+  const stats = (
+    [
+      { icon: "arrow-down-to-line", label: "Depth", value: x.depth },
+      { icon: "wind", label: "Current", value: L(x.current) },
+      { icon: "eye", label: "Visibility", value: x.vis },
+      { icon: "thermometer", label: "Water temp", value: x.temp },
+    ] as { icon: IconName; label: string; value: string }[]
+  ).filter((s) => s.value);
+  const access = (
+    [
+      { icon: "ship", label: "Boat time", value: L(x.boatTime) },
+      { icon: "anchor", label: "Entry", value: L(x.entry) },
+      { icon: "badge-check", label: "Minimum level", value: L(x.minLevel) },
+      { icon: "triangle-alert", label: "Watch for", value: L(x.hazards) },
+      { icon: "clock", label: "Best time", value: L(x.bestTime) },
+    ] as { icon: IconName; label: string; value: string }[]
+  ).filter((s) => s.value);
+  const hero = img(x.photo);
+  const gallery = x.gallery.map((p) => img(p.photo, "(min-width: 900px) 30vw, 100vw")).filter((p): p is NonNullable<typeof p> => !!p);
+  const hasStats = stats.length > 0 || !!L(x.level);
+  const hasTopo = !!(L(x.topo) || L(x.aboutTopo));
+  const hasLife = !!(x.see.length || L(x.aboutLife) || gallery.length);
   const hasAccess = access.length > 0 || x.tips.length > 0;
 
   return (
@@ -55,37 +56,49 @@ export function SiteGuideView({ slug }: { slug: string }) {
           {t("All dive sites")}
         </ButtonLink>
         <span className="course-bar__count">
-          {i + 1} / {N}
+          {data.index + 1} / {data.total}
         </span>
-        <ButtonLink href={siteHref(prev.slug)} variant="secondary" icon="arrow-left" iconOnly aria-label={t("Previous site")} />
-        <ButtonLink href={siteHref(next.slug)} variant="secondary" icon="arrow-right" iconOnly aria-label={t("Next site")} />
+        <ButtonLink href={siteHref(data.prev.slug)} variant="secondary" icon="arrow-left" iconOnly aria-label={t("Previous site")} />
+        <ButtonLink href={siteHref(data.next.slug)} variant="secondary" icon="arrow-right" iconOnly aria-label={t("Next site")} />
         <span className="guide-wide-only">
           <ButtonLink href={book} external variant="primary">
-            {t("Book this dive")}
+            {L(g.bookLabel)}
           </ButtonLink>
         </span>
       </div>
 
       <section className="cd-hero">
-        {x.photo && <img className="cd-hero__img" src={x.photo} alt={`${x.name} photo`} fetchPriority="high" style={{ background: "var(--neutral-800)" }} />}
+        {hero && <img className="cd-hero__img" src={hero.src} srcSet={hero.srcSet} sizes={hero.sizes} alt={hero.alt || `${x.name} photo`} fetchPriority="high" style={{ background: "var(--neutral-800)" }} />}
         <div aria-hidden="true" className="cd-hero__shade" />
         <div className="cd-hero__body">
-          <Eyebrow onDark>{`${t("Site guide")} · ${siteNum(i)} · ${t(x.type)}`}</Eyebrow>
+          <Eyebrow onDark>{`${t("Site guide")} · ${siteNum(data.index)} · ${L(x.type)}`}</Eyebrow>
           <h1 className="cd-hero__title">{x.name}</h1>
           {x.aka && (
             <div className="guide-aka">
               <span>{t("Also known as")}</span>: {x.aka}
             </div>
           )}
-          <p className="cd-hero__lead">{t(x.intro)}</p>
+          <p className="cd-hero__lead">{L(x.intro)}</p>
           <div className="guide-loc">
             <Icon name="map-pin" size={18} style={{ color: "var(--primary-300)" }} />
-            <span>{t("Location")}</span> · {t(x.area || "Alor")}
+            <span>{t("Location")}</span> · {L(x.area) || "Alor"}
           </div>
-          {x.draft && (
+          {x.unverified && L(g.draftNote) && (
             <div className="guide-draft">
               <Icon name="info" size={16} style={{ color: "var(--primary-300)" }} />
-              <span>{t("Notes compiled from public dive guides. Our team is still checking the details.")}</span>
+              <span>{L(g.draftNote)}</span>
+            </div>
+          )}
+          {x.credit && (
+            <div className="guide-draft" style={{ fontSize: 12 }}>
+              {t("Photo")}:{" "}
+              {x.creditUrl ? (
+                <a href={x.creditUrl} target="_blank" rel="noopener noreferrer">
+                  {x.credit}
+                </a>
+              ) : (
+                x.credit
+              )}
             </div>
           )}
         </div>
@@ -99,7 +112,7 @@ export function SiteGuideView({ slug }: { slug: string }) {
               <div key={st.label} className="cd-card">
                 <Icon name={st.icon} size={24} style={{ color: "var(--primary-300)" }} />
                 <span className="cd-caps">{t(st.label)}</span>
-                <span className="guide-stat">{t(st.value)}</span>
+                <span className="guide-stat">{st.value}</span>
               </div>
             ))}
           </div>
@@ -107,10 +120,10 @@ export function SiteGuideView({ slug }: { slug: string }) {
             <div className="cd-cert__agency">
               <span>{t("Recommended level")}</span>
               <Tag tone="primary" icon="badge-check">
-                {t(x.level || "Ask us")}
+                {L(x.level) || t("Ask us")}
               </Tag>
             </div>
-            <span className="cd-cert__group">{t("Times, visibility and temperature are typical ranges, not a promise.")}</span>
+            {L(g.typicalNote) && <span className="cd-cert__group">{L(g.typicalNote)}</span>}
           </div>
         </section>
       )}
@@ -122,16 +135,18 @@ export function SiteGuideView({ slug }: { slug: string }) {
               <Head eyebrow="02 · Topography and dive type" title="What the reef looks like." inline />
             </div>
             <div className="cd-split__wide guide-topo">
-              <p className="guide-topo__lead">{t(x.topo)}</p>
-              <div className="guide-types">
-                <span className="cd-caps">{t("Dive type")}</span>
-                {x.diveTypes.map((dt) => (
-                  <Tag key={dt} icon="waves">
-                    {t(dt)}
-                  </Tag>
-                ))}
-              </div>
-              {about0 && <p className="cd-lead">{t(about0)}</p>}
+              {L(x.topo) && <p className="guide-topo__lead">{L(x.topo)}</p>}
+              {x.diveTypes.length > 0 && (
+                <div className="guide-types">
+                  <span className="cd-caps">{t("Dive type")}</span>
+                  {x.diveTypes.map((dt, k) => (
+                    <Tag key={k} icon="waves">
+                      {L(dt.label)}
+                    </Tag>
+                  ))}
+                </div>
+              )}
+              {L(x.aboutTopo) && <p className="cd-lead">{L(x.aboutTopo)}</p>}
             </div>
           </div>
         </section>
@@ -142,21 +157,23 @@ export function SiteGuideView({ slug }: { slug: string }) {
           <div className="cd-split">
             <div className="cd-split__narrow">
               <Head eyebrow="03 · Marine life" title="What lives here." inline />
-              {about1 && <p className="cd-lead">{t(about1)}</p>}
-              <div className="cd-list">
-                <span className="cd-caps cd-list__head">{t("Look out for")}</span>
-                {x.see.map((sp, k) => (
-                  <div key={sp} className="cd-list__row">
-                    <span className="cd-learn__n">{siteNum(k)}</span>
-                    <span className="guide-see">{t(sp)}</span>
-                  </div>
-                ))}
-              </div>
+              {L(x.aboutLife) && <p className="cd-lead">{L(x.aboutLife)}</p>}
+              {x.see.length > 0 && (
+                <div className="cd-list">
+                  <span className="cd-caps cd-list__head">{t("Look out for")}</span>
+                  {x.see.map((sp, k) => (
+                    <div key={k} className="cd-list__row">
+                      <span className="cd-learn__n">{siteNum(k)}</span>
+                      <span className="guide-see">{L(sp.name)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="cd-split__wide guide-gallery">
-              {x.gallery.map((src, k) => (
-                <div key={src} className="guide-gallery__item">
-                  <img src={src} alt={`${x.name} photo ${k + 1}`} loading="lazy" />
+              {gallery.map((p, k) => (
+                <div key={k} className="guide-gallery__item">
+                  <img src={p.src} srcSet={p.srcSet} sizes={p.sizes} alt={p.alt || `${x.name} photo ${k + 1}`} loading="lazy" />
                 </div>
               ))}
             </div>
@@ -173,7 +190,7 @@ export function SiteGuideView({ slug }: { slug: string }) {
                 <div key={ac.label} className="cd-reqs__row">
                   <Icon name={ac.icon} size={20} style={{ color: "var(--primary-300)" }} />
                   <span className="cd-reqs__label">{t(ac.label)}</span>
-                  <span className="cd-reqs__value">{t(ac.value)}</span>
+                  <span className="cd-reqs__value">{ac.value}</span>
                 </div>
               ))}
             </div>
@@ -181,17 +198,19 @@ export function SiteGuideView({ slug }: { slug: string }) {
               {x.tips.length > 0 && (
                 <div className="cd-card cd-tips">
                   <span className="cd-caps">{t("Guide tips")}</span>
-                  {x.tips.map((tp) => (
-                    <div key={tp} className="cd-tips__row">
+                  {x.tips.map((tp, k) => (
+                    <div key={k} className="cd-tips__row">
                       <Icon name="circle-check" size={20} style={{ color: "var(--primary-300)", flex: "none" }} />
-                      <span>{t(tp)}</span>
+                      <span>{L(tp.text)}</span>
                     </div>
                   ))}
                 </div>
               )}
-              <div data-theme="light">
-                <Alert>{t("Conditions change with the tide. Your guide checks the current on the day and may switch sites to keep the dive safe.")}</Alert>
-              </div>
+              {L(g.safetyNote) && (
+                <div data-theme="light">
+                  <Alert>{L(g.safetyNote)}</Alert>
+                </div>
+              )}
             </div>
           </div>
         </section>
@@ -199,15 +218,15 @@ export function SiteGuideView({ slug }: { slug: string }) {
 
       <section className="cd-section cd-section--alt cd-cta">
         <div className="cd-cta__text">
-          <h3 className="cd-cta__title">{t("Dive this site with us")}</h3>
-          <p className="cd-lead">{t("Add it to your trip and we plan the day around the tide.")}</p>
+          <h3 className="cd-cta__title">{L(g.ctaTitle)}</h3>
+          {L(g.ctaText) && <p className="cd-lead">{L(g.ctaText)}</p>}
         </div>
         <div className="cta-band__actions">
           <ButtonLink href={book} external variant="primary" size="xlarge">
-            {t("Book this dive")}
+            {L(g.bookLabel)}
           </ButtonLink>
-          <ButtonLink href={siteHref(next.slug)} variant="secondary" size="xlarge" icon="arrow-right" iconPosition="suffix">
-            {next.name}
+          <ButtonLink href={siteHref(data.next.slug)} variant="secondary" size="xlarge" icon="arrow-right" iconPosition="suffix">
+            {data.next.name}
           </ButtonLink>
         </div>
       </section>
@@ -216,7 +235,7 @@ export function SiteGuideView({ slug }: { slug: string }) {
 }
 
 function Head({ eyebrow, title, inline }: { eyebrow: string; title: string; inline?: boolean }) {
-  const { t } = useLang();
+  const { t } = useContent({});
   return (
     <div className={inline ? "cd-head cd-head--inline" : "cd-head"}>
       <Eyebrow onDark>{t(eyebrow)}</Eyebrow>

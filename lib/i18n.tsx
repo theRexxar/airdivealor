@@ -98,6 +98,7 @@ const EXTRA: Record<string, string> = {
   "From 180+ reviews": "Dari 180+ ulasan",
   "2,000+ divers": "2.000+ penyelam",
   Deposit: "Uang muka",
+  Photo: "Foto",
 };
 
 const ID: Record<string, string> = { ...EXACT, ...SITES_ID, ...SITES_PAGE_ID, ...FACILITIES_ID, ...EXTRA };

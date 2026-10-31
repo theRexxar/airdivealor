@@ -4,31 +4,89 @@ import Link from "next/link";
 import { useState } from "react";
 import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
-import { Alert, Button, ButtonLink, Eyebrow, Icon, type IconName } from "@/components/ui";
-import { useLang } from "@/lib/i18n";
-import { ROUTES, waLink } from "@/lib/site";
-import { SITES, SITE_FILTERS, siteHref, siteNum, type SiteFilter } from "@/lib/sites";
+import { Alert, Button, ButtonLink, Eyebrow, Icon, asIcon } from "@/components/ui";
+import type { PublishedDiveSites, SiteContent } from "@/lib/cms/dive-sites-types";
+import { useContent, type ContentHelpers } from "@/lib/cms/use-content";
+import { waLink } from "@/lib/site";
+import { siteHref } from "@/lib/sites";
 import "./sites.css";
 
-const PAGE = 9;
+/** The Dive sites page, rendered from CMS content (published, or drafts in the CMS preview). */
+export function SitesView({ data }: { data: PublishedDiveSites }) {
+  const h = useContent(data.media);
+  const c = data.content;
+  return (
+    <div className="page">
+      <SiteHeader current="diveSites" />
+      {data.order.map((k) => {
+        switch (k) {
+          case "hero":
+            return <Hero key={k} c={c} h={h} />;
+          case "highlights":
+            return <Highlights key={k} c={c} h={h} overlap={data.order[data.order.indexOf(k) - 1] === "hero"} />;
+          case "list":
+            return <List key={k} c={c} h={h} sites={data.sites} />;
+          case "cta":
+            return <Cta key={k} c={c} h={h} />;
+          default:
+            return null;
+        }
+      })}
+      <SiteFooter />
+    </div>
+  );
+}
 
-const HIGHLIGHTS: { icon: IconName; title: string; text: string }[] = [
-  { icon: "flower-2", title: "Healthy reefs", text: "Hard and soft coral cover most sites, from the shallows down the wall." },
-  { icon: "mountain", title: "Walls, pinnacles and sand", text: "Steep walls, pinnacles that break the surface, overhangs and dark sandy bays." },
-  { icon: "waves", title: "Currents, planned by tide", text: "The Pantar Strait moves a lot of water. We time each dive to the tide so the current works for you." },
-  { icon: "fish", title: "Big fish, with luck", text: "Sharks, eagle rays and the odd thresher pass by. They are a bonus, never a promise." },
-  { icon: "search", title: "Muck and macro", text: "Rhinopias, frogfish, pygmy seahorses and nudibranchs live in the bays." },
-  { icon: "eye", title: "Clear water", text: "Most reef sites see 15 to 30 m. Bay sites are lower but full of small life." },
-];
+type P = { c: PublishedDiveSites["content"]; h: ContentHelpers };
 
-export function SitesView() {
-  const { t, lang } = useLang();
-  const [filter, setFilter] = useState<SiteFilter>("all");
-  const [shown, setShown] = useState(PAGE);
+function Hero({ c, h }: P) {
+  const { L, img } = h;
+  const photo = img(c.hero.image);
+  return (
+    <section data-theme="dark" className="sites-hero">
+      {photo && <img className="sites-hero__img" src={photo.src} srcSet={photo.srcSet} sizes={photo.sizes} alt={photo.alt} fetchPriority="high" />}
+      <div aria-hidden="true" className="sites-hero__shade" />
+      <div className="sites-hero__body">
+        {L(c.hero.eyebrow) && <Eyebrow onDark>{L(c.hero.eyebrow)}</Eyebrow>}
+        <h1 className="sites-hero__title">{L(c.hero.title)}</h1>
+        {L(c.hero.lead) && <p className="sites-hero__lead">{L(c.hero.lead)}</p>}
+      </div>
+    </section>
+  );
+}
+
+function Highlights({ c, h, overlap }: P & { overlap: boolean }) {
+  const { L } = h;
+  if (!c.highlights.items.length) return null;
+  return (
+    <section className="sites-known" style={overlap ? undefined : { paddingTop: "clamp(48px, 6vw, 80px)" }}>
+      <div data-theme="light" className="sites-known__grid" style={overlap ? undefined : { marginTop: 0 }}>
+        {c.highlights.items.map((x, i) => (
+          <div key={i} className="sites-known__item">
+            <Icon name={asIcon(x.icon)} size={26} style={{ color: "var(--icon-primary)" }} />
+            <span className="sites-known__title">{L(x.title)}</span>
+            {L(x.text) && <p>{L(x.text)}</p>}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** A site matches a filter when one of its dive types (English) contains one of the filter's words. */
+const matches = (site: SiteContent, match: string) => {
+  const words = match.split(",").map((w) => w.trim().toLowerCase()).filter(Boolean);
+  return !words.length || site.diveTypes.some((d) => words.some((w) => d.label.en.toLowerCase().includes(w)));
+};
+
+function List({ c, h, sites }: P & { sites: SiteContent[] }) {
+  const { L, img, t, lang } = h;
+  const per = Math.max(1, c.list.pageSize || 9);
+  const [filter, setFilter] = useState(0);
+  const [shown, setShown] = useState(per);
   const [loading, setLoading] = useState(false);
-
-  const test = SITE_FILTERS.find(([k]) => k === filter)![2];
-  const all = SITES.map((s, i) => ({ s, i })).filter(({ s }) => test(s));
+  const f = c.list.filters[filter];
+  const all = sites.map((s, i) => ({ s, i })).filter(({ s }) => !f || matches(s, f.match));
   const left = Math.max(0, all.length - shown);
   const id = lang === "ID";
 
@@ -36,139 +94,124 @@ export function SitesView() {
     if (loading) return;
     setLoading(true);
     setTimeout(() => {
-      setShown((n) => n + PAGE);
+      setShown((n) => n + per);
       setLoading(false);
     }, 450);
   };
 
   return (
-    <div className="page">
-      <SiteHeader current="diveSites" />
-
-      <section data-theme="dark" className="sites-hero">
-        <img className="sites-hero__img" src="/sites/don-tupa.jpg" alt="Coral wall at Dinding Bama, Pantar" fetchPriority="high" />
-        <div aria-hidden="true" className="sites-hero__shade" />
-        <div className="sites-hero__body">
-          <Eyebrow onDark>{t("Dive sites · Alor and Pantar")}</Eyebrow>
-          <h1 className="sites-hero__title">{t("Pick a site. See what lives there.")}</h1>
-          <p className="sites-hero__lead">{t("Walls, pinnacles, caverns and muck bays around Alor, Pantar and Pura. Open any site for its full guide.")}</p>
+    <section id="sites" className="sites-all">
+      <div className="stories__head sites-all__head">
+        <div className="sites-all__intro">
+          {L(c.list.eyebrow) && <Eyebrow>{L(c.list.eyebrow)}</Eyebrow>}
+          <h2 className="h2">{L(c.list.title)}</h2>
         </div>
-      </section>
-
-      <section className="sites-known">
-        <div data-theme="light" className="sites-known__grid">
-          {HIGHLIGHTS.map((h) => (
-            <div key={h.title} className="sites-known__item">
-              <Icon name={h.icon} size={26} style={{ color: "var(--icon-primary)" }} />
-              <span className="sites-known__title">{t(h.title)}</span>
-              <p>{t(h.text)}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section id="sites" className="sites-all">
-        <div className="stories__head sites-all__head">
-          <div className="sites-all__intro">
-            <Eyebrow>{t("01 · All sites")}</Eyebrow>
-            <h2 className="h2">{t("Our regular dive sites.")}</h2>
-          </div>
+        {c.list.filters.length > 1 && (
           <div className="chips">
-            {SITE_FILTERS.map(([k, label]) => (
+            {c.list.filters.map((x, k) => (
               <Button
                 key={k}
                 variant={k === filter ? "primary" : "secondary"}
                 size="small"
                 onClick={() => {
                   setFilter(k);
-                  setShown(PAGE);
+                  setShown(per);
                 }}
               >
-                {t(label)}
+                {L(x.label)}
               </Button>
             ))}
           </div>
-        </div>
+        )}
+      </div>
 
-        <div className="site-grid">
-          {all.slice(0, shown).map(({ s, i }) => (
+      <div className="site-grid">
+        {all.slice(0, shown).map(({ s, i }) => {
+          const photo = img(s.photo, "(min-width: 1040px) 33vw, (min-width: 700px) 50vw, 100vw");
+          return (
             <Link key={s.slug} href={siteHref(s.slug)} aria-label={`Open site guide: ${s.name}`} className="site-card">
               <div className="site-card__media">
-                {s.photo ? (
-                  <img src={s.photo} alt={s.name} loading="lazy" />
+                {photo ? (
+                  <img src={photo.src} srcSet={photo.srcSet} sizes={photo.sizes} alt={photo.alt || s.name} loading="lazy" />
                 ) : (
                   <div data-theme="dark" className="site-card__nophoto">
                     <Icon name="waves" size={32} style={{ color: "var(--primary-300)" }} />
                     <span>{t("Photo coming soon")}</span>
                   </div>
                 )}
-                <span className="site-card__num">{siteNum(i)}</span>
+                <span className="site-card__num">{String(i + 1).padStart(2, "0")}</span>
               </div>
               <div className="site-card__body">
-                <span className="site-card__type">{t(s.type)}</span>
+                <span className="site-card__type">{L(s.type)}</span>
                 <span className="site-card__name">{s.name}</span>
                 <span className="site-card__area">
                   <Icon name="map-pin" size={15} />
-                  {t(s.area || "Alor")}
+                  {L(s.area) || "Alor"}
                 </span>
-                <p className="site-card__intro">{t(s.intro)}</p>
+                <p className="site-card__intro">{L(s.intro)}</p>
               </div>
               <div className="site-card__facts">
-                <Fact label="Depth" value={s.depth} />
-                <Fact label="Level" value={s.level} />
-                <Fact label="Current" value={s.current} />
+                <Fact label={t("Depth")} value={s.depth} />
+                <Fact label={t("Level")} value={L(s.level)} />
+                <Fact label={t("Current")} value={L(s.current)} />
               </div>
               <div className="site-card__more">
                 <span>{t("Site guide")}</span>
                 <Icon name="arrow-right" size={18} />
               </div>
             </Link>
-          ))}
-        </div>
+          );
+        })}
+      </div>
 
-        {left > 0 && (
-          <div className="sites-more">
-            <Button variant="secondary" size="large" icon="chevron-right" iconPosition="suffix" onClick={loadMore}>
-              {id ? (loading ? "Memuat…" : `Muat ${Math.min(PAGE, left)} lagi`) : loading ? "Loading…" : `Load ${Math.min(PAGE, left)} more`}
-            </Button>
-            <span className="sites-more__count">
-              {id
-                ? `Menampilkan ${Math.min(shown, all.length)} dari ${all.length} titik`
-                : `Showing ${Math.min(shown, all.length)} of ${all.length} sites`}
-            </span>
-          </div>
-        )}
+      {left > 0 && (
+        <div className="sites-more">
+          <Button variant="secondary" size="large" icon="chevron-right" iconPosition="suffix" onClick={loadMore}>
+            {id ? (loading ? "Memuat…" : `Muat ${Math.min(per, left)} lagi`) : loading ? "Loading…" : `Load ${Math.min(per, left)} more`}
+          </Button>
+          <span className="sites-more__count">
+            {id ? `Menampilkan ${Math.min(shown, all.length)} dari ${all.length} titik` : `Showing ${Math.min(shown, all.length)} of ${all.length} sites`}
+          </span>
+        </div>
+      )}
+      {L(c.list.note) && (
         <div data-theme="light" className="sites-note">
-          <Alert>{t("We choose sites on the day, based on tide, current and weather. Each guide shows typical conditions, not a promise.")}</Alert>
+          <Alert>{L(c.list.note)}</Alert>
         </div>
-      </section>
-
-      <section className="cta-band">
-        <div className="cta-band__text">
-          <h2 className="h2">{t("Not sure which site suits you?")}</h2>
-          <p className="lead">{t("Tell us your level and what you hope to see. We plan your dive days around the tide.")}</p>
-        </div>
-        <div className="cta-band__actions">
-          <ButtonLink href={waLink("Hi Air Dive Alor, which dive sites would suit me?")} external variant="primary" size="xlarge" icon="message-circle">
-            {t("Ask on WhatsApp")}
-          </ButtonLink>
-          <ButtonLink href={ROUTES.prices} variant="secondary" size="xlarge" icon="arrow-right" iconPosition="suffix">
-            {t("See prices")}
-          </ButtonLink>
-        </div>
-      </section>
-
-      <SiteFooter />
-    </div>
+      )}
+    </section>
   );
 }
 
 function Fact({ label, value }: { label: string; value: string }) {
-  const { t } = useLang();
   return (
     <div className="site-card__fact">
-      <span className="site-card__fact-label">{t(label)}</span>
-      <span className="site-card__fact-value">{value ? t(value) : "—"}</span>
+      <span className="site-card__fact-label">{label}</span>
+      <span className="site-card__fact-value">{value || "—"}</span>
     </div>
+  );
+}
+
+function Cta({ c, h }: P) {
+  const { L } = h;
+  return (
+    <section className="cta-band">
+      <div className="cta-band__text">
+        <h2 className="h2">{L(c.cta.title)}</h2>
+        {L(c.cta.text) && <p className="lead">{L(c.cta.text)}</p>}
+      </div>
+      <div className="cta-band__actions">
+        {L(c.cta.primaryLabel) && (
+          <ButtonLink href={waLink(c.cta.primaryMessage || undefined)} external variant="primary" size="xlarge" icon="message-circle">
+            {L(c.cta.primaryLabel)}
+          </ButtonLink>
+        )}
+        {L(c.cta.secondaryLabel) && c.cta.secondaryUrl && (
+          <ButtonLink href={c.cta.secondaryUrl} external={/^https?:/.test(c.cta.secondaryUrl)} variant="secondary" size="xlarge" icon="arrow-right" iconPosition="suffix">
+            {L(c.cta.secondaryLabel)}
+          </ButtonLink>
+        )}
+      </div>
+    </section>
   );
 }

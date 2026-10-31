@@ -16,6 +16,9 @@ const LABELS: Record<string, string> = {
   "user.invited": "Invited user", "user.invite_resent": "Resent invitation", "user.updated": "Updated user", "user.deleted": "Deleted user",
   "role.created": "Created role", "role.updated": "Updated role", "role.deleted": "Deleted role",
   "home.draft_saved": "Saved Home draft", "home.draft_discarded": "Discarded Home draft", "home.published": "Published Home", "home.layout_changed": "Changed Home section order",
+  "page.draft_saved": "Saved page draft", "page.draft_discarded": "Discarded page draft", "page.published": "Published page", "page.layout_changed": "Changed section order",
+  "item.created": "Created item", "item.draft_saved": "Saved item draft", "item.draft_discarded": "Discarded item draft", "item.published": "Published item",
+  "item.unpublished": "Unpublished item", "item.hidden": "Hid item", "item.shown": "Showed item", "item.reordered": "Reordered items", "item.deleted": "Deleted item",
   "media.upload_started": "Started upload", "media.uploaded": "Uploaded file", "media.updated": "Edited file", "media.deleted": "Deleted file",
 };
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "@/lib/cms/client";
 import { Button, Icon } from "@/components/ui";
 import { emptyObject, type Field, type I18n, type MediaRef } from "@/lib/cms/fields";
 import type { ResolvedMedia } from "@/lib/cms/home-types";
@@ -147,9 +148,54 @@ function FieldInput({ field: f, value, onChange, path, ctx }: { field: Field; va
           <Fields fields={f.fields} value={(value as Record<string, unknown>) ?? {}} onChange={onChange} path={path} ctx={ctx} />
         </div>
       );
+    case "ref":
+      return wrap(<RefInput id={id} collection={f.collection} value={(value as string) ?? ""} readOnly={ctx.readOnly} onChange={onChange} />, id);
     case "list":
       return <ListInput field={f} value={(value as Record<string, unknown>[]) ?? []} onChange={onChange} path={path} ctx={ctx} error={error} />;
   }
+}
+
+/** Options per collection, loaded once per page view and shared by every picker. */
+const refCache = new Map<string, Promise<{ value: string; label: string }[]>>();
+function loadOptions(collection: string) {
+  if (!refCache.has(collection)) {
+    refCache.set(
+      collection,
+      api<{ options: { value: string; label: string }[] }>(`/api/cms/collections/${collection}/options`)
+        .then((r) => r.options)
+        .catch(() => {
+          refCache.delete(collection);
+          return [];
+        }),
+    );
+  }
+  return refCache.get(collection)!;
+}
+
+function RefInput({ id, collection, value, readOnly, onChange }: { id: string; collection: string; value: string; readOnly: boolean; onChange: (v: string) => void }) {
+  const [options, setOptions] = useState<{ value: string; label: string }[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    loadOptions(collection).then((o) => live && setOptions(o));
+    return () => {
+      live = false;
+    };
+  }, [collection]);
+  const known = !options || !value || options.some((o) => o.value === value);
+  return (
+    <div className="tw-field__control tw-field__control--select" style={{ maxWidth: 420 }}>
+      <select id={id} className="tw-field__input tw-field__select" value={value} disabled={readOnly || !options} onChange={(e) => onChange(e.target.value)}>
+        <option value="">{options ? "Choose…" : "Loading…"}</option>
+        {!known && <option value={value}>{value} (deleted)</option>}
+        {options?.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <Icon name="chevron-down" size={20} className="tw-field__icon" />
+    </div>
+  );
 }
 
 function itemTitle(f: Extract<Field, { type: "list" }>, item: Record<string, unknown>, i: number) {

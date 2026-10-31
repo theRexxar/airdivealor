@@ -1,4 +1,5 @@
 /** Shape of the Home page content stored in the CMS (one object per section). Mirrors lib/cms/home-sections.ts. */
+import type { SiteContent } from "./dive-sites-types";
 import type { I18n, MediaRef } from "./fields";
 
 export interface HomeContent {
@@ -70,5 +71,7 @@ export interface PublishedHome {
   order: Exclude<HomeSectionKey, "seo">[];
   /** Media library files used by the content, keyed by media id. */
   media: Record<string, ResolvedMedia>;
+  /** Dive sites picked in the "sites" section, from the Dive site guides collection, keyed by slug. */
+  sites: Record<string, SiteContent>;
   publishedAt: string | null;
 }
