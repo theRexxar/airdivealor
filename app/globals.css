@@ -336,3 +336,53 @@ span.wide-only, span.narrow-only { display: contents; }
 .lightbox__img { max-width: 100%; max-height: calc(100vh - 140px); object-fit: contain; display: block; border-radius: var(--radius-md); box-shadow: var(--shadow-lg); }
 .lightbox__nav { display: flex; gap: 12px; }
 .cta-band.cta-band--plain { background: var(--bg-default); }
+
+/* ---------- Design-system Button (text), Tag, Alert ---------- */
+.tw-btn--text { background: transparent; color: var(--text-primary); min-height: 0; padding: var(--space-4) var(--space-8); }
+.tw-btn--text:hover { color: var(--text-primary-secondary); background: transparent; }
+[data-theme="dark"] .tw-btn--text { color: var(--primary-400); }
+[data-theme="dark"] .tw-btn--text:hover { color: var(--primary-300); }
+.tw-tag {
+  box-sizing: border-box; display: inline-flex; align-items: center; gap: var(--space-8); min-height: 24px; padding: var(--space-4) var(--space-8);
+  border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--bg-secondary); color: var(--text-default);
+  font: 400 14px/1 var(--font-roboto);
+}
+.tw-tag--primary { background: var(--bg-primary); border-color: var(--bg-primary); color: var(--text-on-primary); }
+.tw-alert {
+  box-sizing: border-box; display: flex; align-items: flex-start; gap: var(--space-12);
+  padding: var(--space-16) var(--space-24) var(--space-16) var(--space-16); border: 1px solid; font: 400 14px/1.4 var(--font-roboto);
+}
+.tw-alert__icon { padding-top: 1px; display: inline-flex; flex: none; }
+.tw-alert__body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: var(--space-4); }
+.tw-alert--info { background: var(--bg-primary-subdued); border-color: var(--border-primary); }
+.tw-alert--info .tw-alert__icon { color: var(--icon-primary); }
+.tw-alert { color: var(--text-default); }
+
+/* ---------- Design-system Rating, AvatarWithText, form fields, success alert, xsmall button ---------- */
+.tw-btn--xsmall { --btn-h: 34px; --btn-py: 8px; --btn-px: 12px; --btn-fs: 12px; }
+.tw-rating { display: inline-flex; gap: 5px; }
+.tw-rating__empty { fill: var(--neutral-200); stroke: var(--neutral-200); stroke-width: 2; stroke-linejoin: round; }
+.tw-rating__full { fill: var(--icon-warning); stroke: var(--icon-warning); stroke-width: 2; stroke-linejoin: round; }
+.tw-avatar-text { display: inline-flex; align-items: center; gap: var(--space-16); }
+.tw-avatar-text__name { font: 500 14px/1.4 var(--font-roboto); color: var(--text-default); }
+.tw-avatar-text__meta { font: 400 12px/1.4 var(--font-roboto); color: var(--text-secondary); }
+.tw-alert__title--strong { font-weight: 500; }
+.tw-alert--success { background: var(--bg-success-subdued-plus); border-color: var(--border-success); }
+.tw-alert--success .tw-alert__icon { color: var(--icon-success); }
+.tw-field { display: flex; flex-direction: column; gap: var(--space-4); font-family: var(--font-roboto); color: var(--text-default); min-width: 0; }
+.tw-field__label { font: 500 14px/1.4 var(--font-roboto); color: var(--text-default); }
+.tw-field__req { color: var(--red-400); font-weight: 400; font-size: 12px; margin-left: 4px; }
+.tw-field__control {
+  box-sizing: border-box; display: flex; align-items: center; gap: var(--space-10); min-height: 38px; padding: 0 var(--space-12);
+  background: var(--bg-default); border: 1px solid var(--border-secondary); border-radius: var(--radius-md); position: relative;
+}
+.tw-field__control:focus-within { border-color: var(--border-primary); box-shadow: 0 0 0 1px var(--border-primary); }
+.tw-field__input {
+  flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; padding: 9px 0;
+  font: 400 14px/20px var(--font-inter); color: var(--text-default); appearance: none; -webkit-appearance: none;
+}
+.tw-field__input::placeholder { color: var(--text-secondary); opacity: 1; }
+.tw-field__icon { color: var(--icon-secondary); }
+.tw-field__select { cursor: pointer; padding-right: var(--space-4); }
+.tw-field__control--select .tw-field__icon { pointer-events: none; }
+section[id] { scroll-margin-top: 64px; }

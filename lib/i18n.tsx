@@ -1,6 +1,8 @@
 "use client";
 
 import { EXACT, FRAG } from "./i18n-dict";
+import { FACILITIES_ID } from "./page-dicts";
+import { SITES_ID, SITES_PAGE_ID } from "./sites-data";
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 
 export type Lang = "EN" | "ID";
@@ -59,9 +61,45 @@ const EXTRA: Record<string, string> = {
   "We are still moving this story from our old blog.": "Cerita ini masih kami pindahkan dari blog lama kami.",
   "Read the full story on airdivealor.com": "Baca cerita lengkap di airdivealor.com",
   Breadcrumb: "Navigasi",
+  // Dive courses (UI labels the prototype left in English)
+  "Dive courses · SDI and TDI": "Kursus selam · SDI dan TDI",
+  "From your first breath underwater to Divemaster. Every package includes your stay, three meals a day, gear and airport transfers. Ask us about group rates with a private boat.":
+    "Dari napas pertama Anda di bawah air sampai Divemaster. Setiap paket sudah termasuk menginap, tiga kali makan sehari, alat selam, dan antar-jemput bandara. Tanyakan tarif grup dengan perahu pribadi.",
+  "Course level": "Level kursus",
+  "What's included": "Yang sudah termasuk",
+  "Book now": "Pesan sekarang",
+  "Contact us for a special group rate and dive with your own private boat. We reply within the hour, 7am to 9pm WITA.":
+    "Hubungi kami untuk tarif grup khusus dan menyelam dengan perahu pribadi Anda. Kami membalas dalam satu jam, pukul 07.00 sampai 21.00 WITA.",
+  "Previous course": "Kursus sebelumnya",
+  "Next course": "Kursus berikutnya",
+  Course: "Kursus",
+  "The package price covers your training, stay, food and transfers. You only need to get to Alor.":
+    "Harga paket sudah mencakup pelatihan, menginap, makan, dan antar-jemput. Anda hanya perlu datang ke Alor.",
+  "Course plan": "Rencana kursus",
+  "Instructor tips": "Tips dari instruktur",
+  "Requirements follow SDI and TDI standards. Your instructor confirms your plan before the course starts.":
+    "Persyaratan mengikuti standar SDI dan TDI. Instruktur Anda akan memastikan rencana Anda sebelum kursus dimulai.",
+  "Send us your dates on WhatsApp. We reply within the hour, 7am to 9pm WITA.":
+    "Kirim tanggal Anda lewat WhatsApp. Kami membalas dalam satu jam, pukul 07.00 sampai 21.00 WITA.",
+  Duration: "Durasi",
+  Dives: "Penyelaman",
+  "Max depth": "Kedalaman maks.",
+  "Minimum age": "Usia minimum",
+  Prerequisite: "Syarat awal",
+  Medical: "Medis",
+  "Fill in the diver medical form. Some answers need a doctor's sign-off before you dive.":
+    "Isi formulir medis penyelam. Beberapa jawaban perlu tanda tangan dokter sebelum Anda menyelam.",
+  Insurance: "Asuransi",
+  "Dive insurance is required for every course.": "Asuransi selam wajib untuk setiap kursus.",
+  "Flying after": "Terbang setelahnya",
+  "No diving 24 hours before your flight out.": "Tidak menyelam 24 jam sebelum penerbangan pulang.",
+  // Home awards card (added after the prototype's dictionary)
+  "4.9 on Google": "4,9 di Google",
+  "From 180+ reviews": "Dari 180+ ulasan",
+  "2,000+ divers": "2.000+ penyelam",
 };
 
-const ID: Record<string, string> = { ...EXACT, ...EXTRA };
+const ID: Record<string, string> = { ...EXACT, ...SITES_ID, ...SITES_PAGE_ID, ...FACILITIES_ID, ...EXTRA };
 const FRAG_RE = FRAG.map(([en, id]) => [new RegExp("\\b" + en.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "g"), id] as const);
 
 /** Translate to Indonesian: exact match first, then word-level fragments (same rules as the prototypes). */
