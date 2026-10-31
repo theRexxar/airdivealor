@@ -1,11 +1,12 @@
 "use client";
 
+import { EXACT, FRAG } from "./i18n-dict";
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 
 export type Lang = "EN" | "ID";
 
-/** EN → ID for the shared UI strings (taken from the design's alor-i18n.js and page dictionaries). */
-const ID: Record<string, string> = {
+/** EN → ID strings added on top of the design dictionary (lib/i18n-dict.ts), from the page prototypes. */
+const EXTRA: Record<string, string> = {
   // Header and footer
   Home: "Beranda",
   "Dive sites": "Titik selam",
@@ -60,6 +61,18 @@ const ID: Record<string, string> = {
   Breadcrumb: "Navigasi",
 };
 
+const ID: Record<string, string> = { ...EXACT, ...EXTRA };
+const FRAG_RE = FRAG.map(([en, id]) => [new RegExp("\\b" + en.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "g"), id] as const);
+
+/** Translate to Indonesian: exact match first, then word-level fragments (same rules as the prototypes). */
+export function toId(en: string): string {
+  const hit = ID[en];
+  if (hit != null) return hit;
+  let out = en;
+  for (const [re, id] of FRAG_RE) out = out.replace(re, id);
+  return out;
+}
+
 const STORAGE_KEY = "ada-lang";
 
 interface LangCtx {
@@ -96,7 +109,7 @@ export function LangProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const t = useCallback((en: string) => (lang === "ID" ? ID[en] ?? en : en), [lang]);
+  const t = useCallback((en: string) => (lang === "ID" ? toId(en) : en), [lang]);
   const pick = useCallback(<T,>(en: T, id: T | undefined) => (lang === "ID" && id != null ? id : en), [lang]);
 
   return <Ctx.Provider value={{ lang, toggle, t, pick }}>{children}</Ctx.Provider>;

@@ -1,26 +1,9 @@
 import Link from "next/link";
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes, CSSProperties, ReactNode } from "react";
 
-/** Lucide glyph code points from the design system's icon font (ds/lucide.woff2). */
-const LUCIDE = {
-  "arrow-left": 57416,
-  "arrow-right": 57417,
-  "chevron-down": 57453,
-  "chevron-right": 57455,
-  "circle-check": 57894,
-  "external-link": 57529,
-  globe: 57576,
-  instagram: 57594,
-  link: 57602,
-  mail: 57615,
-  menu: 57621,
-  "message-circle": 57622,
-  phone: 57651,
-  quote: 57913,
-  x: 57778,
-} as const;
+import { LUCIDE, type IconName } from "@/lib/lucide";
 
-export type IconName = keyof typeof LUCIDE;
+export type { IconName };
 
 export function Icon({ name, size = 24, style, className }: { name: IconName; size?: number; style?: CSSProperties; className?: string }) {
   return (
@@ -91,3 +74,15 @@ export function Eyebrow({ children, onDark }: { children: ReactNode; onDark?: bo
 }
 
 export const Dot = ({ light }: { light?: boolean }) => <span aria-hidden="true" className={light ? "dot dot--light" : "dot"} />;
+
+/** Design-system Avatar: initials in a neutral circle. */
+export function Avatar({ name, size = 38 }: { name: string; size?: number }) {
+  const initials = name.split(/\s+/).map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  return (
+    <span className="tw-avatar" style={{ width: size, height: size }}>
+      <span className="tw-avatar__initials" aria-label={name} style={{ fontSize: Math.round(size * 0.375) }}>
+        {initials}
+      </span>
+    </span>
+  );
+}
